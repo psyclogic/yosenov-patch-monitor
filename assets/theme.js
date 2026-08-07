@@ -2,6 +2,9 @@
   'use strict';
 
   const STORAGE_KEY = 'yosenov-theme';
+  const params = new URLSearchParams(window.location.search);
+  const isEmbedPage = /\/embed\.html$/i.test(window.location.pathname) || document.body?.classList?.contains('embed');
+  const compactEmbed = isEmbedPage && ['1', 'true', 'yes'].includes(String(params.get('compact') || '').toLowerCase());
 
   function getStoredTheme() {
     try {
@@ -20,35 +23,50 @@
     }
   }
 
-  function setTheme(theme) {
+  function defaultTheme() {
+    if (compactEmbed) return 'light';
+    if (isEmbedPage) return 'light';
+    return getStoredTheme() || systemTheme();
+  }
+
+  function setTheme(theme, persist = true) {
     const normalized = theme === 'dark' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', normalized);
     document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
       button.textContent = normalized === 'dark' ? '☀' : '☾';
       button.setAttribute('aria-label', normalized === 'dark' ? 'Gunakan tema terang' : 'Gunakan tema gelap');
       button.setAttribute('title', normalized === 'dark' ? 'Tema terang' : 'Tema gelap');
+      if (compactEmbed) button.hidden = true;
     });
-    try { localStorage.setItem(STORAGE_KEY, normalized); } catch (_) {}
+    if (persist) {
+      try { localStorage.setItem(STORAGE_KEY, normalized); } catch (_) {}
+    }
   }
 
   function bindButtons() {
     document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
       if (button.dataset.themeBound === '1') return;
       button.dataset.themeBound = '1';
+      if (compactEmbed) {
+        button.hidden = true;
+        return;
+      }
       button.addEventListener('click', function () {
         const current = document.documentElement.getAttribute('data-theme') || 'light';
         setTheme(current === 'dark' ? 'light' : 'dark');
       });
     });
-    setTheme(document.documentElement.getAttribute('data-theme') || getStoredTheme() || systemTheme());
+    if (compactEmbed) setTheme('light', false);
+    else if (isEmbedPage) setTheme(document.documentElement.getAttribute('data-theme') || 'light', false);
+    else setTheme(document.documentElement.getAttribute('data-theme') || getStoredTheme() || systemTheme());
   }
 
-  setTheme(getStoredTheme() || systemTheme());
+  setTheme(defaultTheme(), !compactEmbed && !isEmbedPage);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bindButtons, { once: true });
   } else {
     bindButtons();
   }
 
-  window.YosenovTheme = { set: setTheme };
+  window.YosenovTheme = { set: (theme) => setTheme(theme) };
 })();

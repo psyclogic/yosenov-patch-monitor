@@ -4,6 +4,9 @@ import { escapeHtml, extractAppId, fetchSteamInfo, getStatus, toast, friendlyFir
 let games = [];
 let firebase = null;
 let unsubscribeGames = null;
+let selectionMode = false;
+const selectedIds = new Set();
+
 const el = (id) => document.getElementById(id);
 const loginView = el('login-view');
 const adminView = el('admin-view');
@@ -30,6 +33,7 @@ async function boot() {
     setFirebaseStatus('Firebase tersambung. Silakan login.', 'success');
     setLoginEnabled(true);
     bindFirebaseAuth();
+    bindBulkControls();
   } catch (error) {
     console.error('Firebase init:', error);
     setFirebaseStatus(error.message || 'Firebase gagal dimuat.', 'error');
@@ -105,6 +109,7 @@ function subscribeGames() {
     games = snapshot.docs
       .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
       .sort((a, b) => String(a.name || a.appId || '').localeCompare(String(b.name || b.appId || ''), 'id'));
+    pruneSelection();
     renderAdmin();
   }, error => toast(friendlyFirebaseError(error), 'error'));
 }
@@ -118,16 +123,10 @@ function setAdminFilter(value) {
   });
 }
 
-function renderAdmin() {
+function getFilteredStatuses() {
   const keyword = el('admin-search').value.trim().toLowerCase();
   const filter = el('admin-filter').value || 'all';
   const statuses = games.map(game => ({ game, status: getStatus(game) }));
-
-  el('a-total').textContent = games.length;
-  el('a-game').textContent = statuses.filter(({status}) => status.gameNeedsUpdate).length;
-  el('a-translation').textContent = statuses.filter(({status}) => status.translationNeedsUpdate).length;
-  el('a-ready').textContent = statuses.filter(({status}) => status.ready).length;
-
   const filtered = statuses.filter(({game, status}) => {
     const searchOk = `${game.name || ''} ${game.appId || ''}`.toLowerCase().includes(keyword);
     const filterOk = filter === 'all'
@@ -136,10 +135,37 @@ function renderAdmin() {
       || (filter === 'ready' && status.ready);
     return searchOk && filterOk;
   });
+  return { statuses, filtered, filter };
+}
+
+function renderAdmin() {
+  const { statuses, filtered, filter } = getFilteredStatuses();
+
+  el('a-total').textContent = games.length;
+  el('a-game').textContent = statuses.filter(({status}) => status.gameNeedsUpdate).length;
+  el('a-translation').textContent = statuses.filter(({status}) => status.translationNeedsUpdate).length;
+  el('a-ready').textContent = statuses.filter(({status}) => status.ready).length;
 
   el('admin-empty').classList.toggle('hidden', filtered.length > 0);
   el('admin-list').innerHTML = filtered.map(({game, status}) => adminCard(game, status)).join('');
   setAdminFilter(filter);
+  renderBulkUi(filtered);
+}
+
+function renderBulkUi(filtered) {
+  const menu = el('bulk-menu');
+  const bar = el('bulk-bar');
+  const count = el('selected-count');
+  const filteredCount = el('filtered-count');
+  const toggleText = el('bulk-toggle-text');
+  const hasSelection = selectedIds.size > 0;
+
+  if (menu) menu.classList.remove('open');
+  if (bar) bar.classList.toggle('hidden', !selectionMode);
+  if (count) count.textContent = String(selectedIds.size);
+  if (filteredCount) filteredCount.textContent = String(filtered.length);
+  if (toggleText) toggleText.textContent = selectionMode ? 'Selesai memilih' : 'Pilih banyak game';
+  el('bulk-delete').disabled = !hasSelection;
 }
 
 function adminCard(game, status) {
@@ -162,8 +188,10 @@ function adminCard(game, status) {
 
   const markDisabled = !game.remoteBuildId || (!status.translationNeedsUpdate && game.translationBuildId === game.remoteBuildId);
   const markText = markDisabled && game.translationBuildId === game.remoteBuildId ? '✓ Terjemahan sesuai' : '✓ Tandai terjemahan selesai';
+  const checked = selectedIds.has(game.id);
 
-  return `<article class="admin-game-card ${translationState.cls === 'danger' ? 'needs-translation' : ''}">
+  return `<article class="admin-game-card ${translationState.cls === 'danger' ? 'needs-translation' : ''}${selectionMode ? ' selection-mode' : ''}">
+    ${selectionMode ? `<button type="button" class="select-chip ${checked ? 'checked' : ''}" data-action="toggle-select" data-id="${game.id}" aria-pressed="${checked ? 'true' : 'false'}" title="${checked ? 'Batalkan pilihan' : 'Pilih game'}">${checked ? '✓' : ''}</button>` : ''}
     <img class="admin-cover" src="${escapeHtml(game.coverUrl || '/assets/logo.svg')}" alt="">
     <div class="admin-game-main">
       <div class="admin-game-title-row"><div><h3>${escapeHtml(game.name || game.appId)}</h3><div class="game-id">Steam App ID ${escapeHtml(game.appId)}</div></div><div class="admin-status-pills"><span class="badge ${gameState.cls}">${gameState.title}</span><span class="badge ${translationState.cls}">${translationState.title}</span></div></div>
@@ -179,6 +207,76 @@ function adminCard(game, status) {
       </div>
     </div>
   </article>`;
+}
+
+function pruneSelection() {
+  const ids = new Set(games.map(game => game.id));
+  [...selectedIds].forEach((id) => {
+    if (!ids.has(id)) selectedIds.delete(id);
+  });
+}
+
+function setSelectionMode(enabled) {
+  selectionMode = Boolean(enabled);
+  if (!selectionMode) selectedIds.clear();
+  renderAdmin();
+}
+
+function toggleSelection(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  renderAdmin();
+}
+
+function bindBulkControls() {
+  el('bulk-actions-button')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    el('bulk-menu')?.classList.toggle('open');
+  });
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('.bulk-actions')) el('bulk-menu')?.classList.remove('open');
+  });
+  el('bulk-toggle-mode')?.addEventListener('click', () => {
+    setSelectionMode(!selectionMode);
+  });
+  el('bulk-select-filtered')?.addEventListener('click', () => {
+    const { filtered } = getFilteredStatuses();
+    filtered.forEach(({ game }) => selectedIds.add(game.id));
+    selectionMode = true;
+    renderAdmin();
+  });
+  el('bulk-clear')?.addEventListener('click', () => {
+    selectedIds.clear();
+    renderAdmin();
+  });
+  el('bulk-clear-inline')?.addEventListener('click', () => {
+    selectedIds.clear();
+    renderAdmin();
+  });
+  el('bulk-done')?.addEventListener('click', () => {
+    setSelectionMode(false);
+  });
+  el('bulk-delete')?.addEventListener('click', async () => {
+    if (!firebase || !selectedIds.size) return;
+    const names = games.filter((game) => selectedIds.has(game.id)).map((game) => game.name || game.appId);
+    const preview = names.slice(0, 6).join(', ');
+    const extra = names.length > 6 ? ` dan ${names.length - 6} game lainnya` : '';
+    if (!confirm(`Hapus ${names.length} game terpilih?\n\n${preview}${extra}`)) return;
+    const button = el('bulk-delete');
+    button.disabled = true;
+    try {
+      const { doc, deleteDoc } = firebase.firestoreModule;
+      for (const id of selectedIds) {
+        await deleteDoc(doc(firebase.db, 'games', id));
+      }
+      toast(`${names.length} game berhasil dihapus.`);
+      setSelectionMode(false);
+    } catch (error) {
+      toast(friendlyFirebaseError(error), 'error');
+    } finally {
+      button.disabled = false;
+    }
+  });
 }
 
 el('admin-search').addEventListener('input', renderAdmin);
@@ -249,6 +347,13 @@ async function saveGame(game) {
 el('admin-list').addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]');
   if (!button || !firebase) return;
+
+  if (button.dataset.action === 'toggle-select') {
+    selectionMode = true;
+    toggleSelection(button.dataset.id);
+    return;
+  }
+
   const game = games.find(g => g.id === button.dataset.id);
   if (!game) return;
 
@@ -360,7 +465,7 @@ function openEdit(game) {
 
 function openEmbed(game) {
   const url = `${window.location.origin}/embed.html?game=${encodeURIComponent(game.appId)}&compact=1`;
-  const code = `<iframe src="${url}" title="Status update ${escapeAttribute(game.name || `Steam App ${game.appId}`)}" width="100%" height="420" style="border:0;display:block;width:100%;" loading="lazy"></iframe>`;
+  const code = `<iframe src="${url}" title="Status update ${escapeAttribute(game.name || `Steam App ${game.appId}`)}" width="100%" height="360" style="border:0;display:block;width:100%;background:#ffffff;" loading="lazy"></iframe>`;
   el('embed-game-name').value = game.name || `Steam App ${game.appId}`;
   el('embed-url').value = url;
   el('embed-code').value = code;

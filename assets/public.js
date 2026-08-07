@@ -4,6 +4,7 @@ import { createFirebaseClient } from './firebase-client.js';
 let games = [];
 const params = new URLSearchParams(window.location.search);
 const requestedGame = (params.get('game') || params.get('appid') || '').trim();
+const compactMode = ['1', 'true', 'yes'].includes(String(params.get('compact') || '').toLowerCase());
 const singleMode = Boolean(requestedGame);
 
 const nodes = {
@@ -18,7 +19,8 @@ const nodes = {
   lastSync: document.querySelector('#last-sync'),
   embedMetrics: document.querySelector('#embed-metrics'),
   embedFilterbar: document.querySelector('#embed-filterbar'),
-  embedTitle: document.querySelector('#embed-title')
+  embedTitle: document.querySelector('#embed-title'),
+  embedThemeButton: document.querySelector('.small-theme')
 };
 
 function slugify(value = '') {
@@ -76,6 +78,11 @@ function render() {
     if (nodes.embedTitle) nodes.embedTitle.textContent = selected ? selected.name : 'YOSENOV Game Status';
   }
 
+  if (compactMode) {
+    document.body.classList.add('compact-embed');
+    nodes.embedThemeButton?.classList.add('hidden');
+  }
+
   nodes.empty?.classList.toggle('hidden', filtered.length > 0);
   if (nodes.empty && singleMode && filtered.length === 0) {
     nodes.empty.textContent = `Game “${requestedGame}” tidak ditemukan di library YOSENOV.`;
@@ -118,9 +125,14 @@ function card(game, status) {
   const noteHtml = notes
     ? `<div class="game-note"><span>Catatan YOSENOV</span><p>${escapeHtml(notes)}</p></div>`
     : '';
+  const hideCover = compactMode;
+  const coverHtml = hideCover
+    ? ''
+    : `<img class="cover" loading="lazy" src="${escapeHtml(game.coverUrl || '/assets/logo.svg')}" alt="Sampul ${escapeHtml(game.name || 'game')}">`;
+  const cardClass = `game-card${hideCover ? ' no-cover' : ''}`;
 
-  return `<article class="game-card" data-appid="${escapeHtml(game.appId || '')}">
-    <img class="cover" loading="lazy" src="${escapeHtml(game.coverUrl || '/assets/logo.svg')}" alt="Sampul ${escapeHtml(game.name || 'game')}">
+  return `<article class="${cardClass}" data-appid="${escapeHtml(game.appId || '')}">
+    ${coverHtml}
     <div class="game-body">
       <div class="game-head"><div><h2 class="game-title">${escapeHtml(game.name || `Steam App ${game.appId}`)}</h2><div class="game-id">App ID ${escapeHtml(game.appId || '')} · patch ${formatDate(game.latestPatchAt)}</div></div></div>
       <div class="status-grid">${gameStatusBlock(status)}${translationStatusBlock(game, status)}</div>
