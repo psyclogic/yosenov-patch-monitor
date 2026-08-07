@@ -6,6 +6,10 @@ let firebase = null;
 let unsubscribeGames = null;
 let selectionMode = false;
 const selectedIds = new Set();
+let scanCandidates = [];
+let scanUpdatedGames = [];
+let scanManifestCount = 0;
+const scanSelectedIds = new Set();
 
 const el = (id) => document.getElementById(id);
 const loginView = el('login-view');
@@ -428,29 +432,212 @@ el('scan-folder').addEventListener('click', async () => {
     const manifests = [];
     await findManifests(root, manifests, 0);
     if (!manifests.length) throw new Error('Tidak menemukan appmanifest_*.acf. Pilih folder steamapps atau folder Steam utama.');
+
+    resetScanSession();
+    scanManifestCount = manifests.length;
     const progress = el('scan-progress');
     const status = el('scan-status');
+    const existingByAppId = new Map(games.map(game => [String(game.appId), game]));
+
     for (let i = 0; i < manifests.length; i++) {
       const file = await manifests[i].getFile();
       const parsed = parseManifest(await file.text());
-      status.textContent = `Memproses ${i + 1}/${manifests.length}: ${parsed.name || parsed.appId}`;
-      progress.style.width = `${Math.round((i / manifests.length) * 100)}%`;
+      status.textContent = `Membaca ${i + 1}/${manifests.length}: ${parsed.name || parsed.appId || file.name}`;
+      progress.style.width = `${Math.round(((i + 1) / manifests.length) * 100)}%`;
       if (!parsed.appId) continue;
-      try {
-        const info = await fetchSteamInfo(parsed.appId);
-        await saveGame({ ...info, ...parsed, source: 'steam-folder' });
-      } catch (_) {
-        await saveGame({ ...parsed, name: parsed.name || `Steam App ${parsed.appId}`, source: 'steam-folder' });
+
+      const existing = existingByAppId.get(String(parsed.appId));
+      if (existing) {
+        try {
+          const info = await fetchSteamInfo(parsed.appId);
+          await saveGame({ ...existing, ...info, localBuildId: parsed.localBuildId, source: existing.source || 'manual' });
+        } catch (error) {
+          console.warn('Steam info gagal saat scan existing:', parsed.appId, error);
+          await updateExistingLocalBuild(existing, parsed.localBuildId);
+        }
+        scanUpdatedGames.push({
+          appId: String(parsed.appId),
+          name: existing.name || parsed.name || `Steam App ${parsed.appId}`,
+          localBuildId: parsed.localBuildId || '',
+          previousLocalBuildId: existing.localBuildId || ''
+        });
+      } else {
+        let preview = { ...parsed };
+        try {
+          const info = await fetchSteamInfo(parsed.appId);
+          preview = { ...info, ...parsed, name: info.name || parsed.name || `Steam App ${parsed.appId}` };
+        } catch (_) {
+          preview.name = parsed.name || `Steam App ${parsed.appId}`;
+        }
+        scanCandidates.push({
+          appId: String(preview.appId),
+          name: preview.name || `Steam App ${preview.appId}`,
+          localBuildId: String(preview.localBuildId || ''),
+          remoteBuildId: String(preview.remoteBuildId || ''),
+          coverUrl: preview.coverUrl || '',
+          latestPatchAt: preview.latestPatchAt || '',
+          latestNewsUrl: preview.latestNewsUrl || '',
+          source: 'steam-folder'
+        });
       }
-      await new Promise(r => setTimeout(r, 150));
+      await new Promise(r => setTimeout(r, 80));
     }
+
+    scanCandidates.sort((a, b) => String(a.name).localeCompare(String(b.name), 'id'));
+    scanUpdatedGames.sort((a, b) => String(a.name).localeCompare(String(b.name), 'id'));
     progress.style.width = '100%';
-    status.textContent = `${manifests.length} manifest berhasil dipindai.`;
-    toast('Library laptop berhasil disinkronkan.');
+    status.textContent = `${manifests.length} manifest dibaca · ${scanUpdatedGames.length} game library diperbarui · ${scanCandidates.length} game baru menunggu pilihan.`;
+    renderScanResults();
+    toast(scanCandidates.length
+      ? `Scan selesai. ${scanCandidates.length} game baru belum disimpan ke library.`
+      : 'Scan selesai. Tidak ada game baru yang dimasukkan otomatis.');
   } catch (error) {
     if (error.name !== 'AbortError') toast(error.message, 'error');
   }
 });
+
+async function updateExistingLocalBuild(game, localBuildId) {
+  if (!firebase) return;
+  const { doc, updateDoc } = firebase.firestoreModule;
+  await updateDoc(doc(firebase.db, 'games', game.id), {
+    localBuildId: String(localBuildId || game.localBuildId || ''),
+    syncedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  });
+}
+
+function resetScanSession() {
+  scanCandidates = [];
+  scanUpdatedGames = [];
+  scanManifestCount = 0;
+  scanSelectedIds.clear();
+  if (el('scan-search')) el('scan-search').value = '';
+  if (el('scan-progress')) el('scan-progress').style.width = '0%';
+  renderScanResults();
+}
+
+function renderScanResults() {
+  const results = el('scan-results');
+  const hasResults = scanManifestCount > 0 || scanCandidates.length > 0 || scanUpdatedGames.length > 0;
+  results?.classList.toggle('hidden', !hasResults);
+  el('clear-scan')?.classList.toggle('hidden', !hasResults);
+  if (!hasResults) return;
+
+  el('scan-total').textContent = String(scanManifestCount);
+  el('scan-existing').textContent = String(scanUpdatedGames.length);
+  el('scan-new').textContent = String(scanCandidates.length);
+  el('scan-updated-count').textContent = `${scanUpdatedGames.length} diperbarui`;
+
+  const updatedWrap = el('scan-updated-wrap');
+  updatedWrap.classList.toggle('hidden', scanUpdatedGames.length === 0);
+  el('scan-updated-list').innerHTML = scanUpdatedGames.map(game => {
+    const changed = game.previousLocalBuildId && game.localBuildId && game.previousLocalBuildId !== game.localBuildId;
+    const detail = changed
+      ? `${escapeHtml(game.previousLocalBuildId)} → ${escapeHtml(game.localBuildId)}`
+      : escapeHtml(game.localBuildId || 'Build belum terbaca');
+    return `<div class="scan-updated-item"><div><strong>${escapeHtml(game.name)}</strong><span>App ID ${escapeHtml(game.appId)}</span></div><span class="scan-build-chip">${detail}</span></div>`;
+  }).join('');
+
+  const newWrap = el('scan-new-wrap');
+  newWrap.classList.toggle('hidden', scanCandidates.length === 0);
+  renderScanCandidates();
+}
+
+function getVisibleScanCandidates() {
+  const keyword = el('scan-search')?.value.trim().toLowerCase() || '';
+  return scanCandidates.filter(game => !keyword || `${game.name} ${game.appId}`.toLowerCase().includes(keyword));
+}
+
+function renderScanCandidates() {
+  const list = el('scan-candidate-list');
+  if (!list) return;
+  const visible = getVisibleScanCandidates();
+  el('scan-candidate-empty')?.classList.toggle('hidden', visible.length > 0);
+  list.innerHTML = visible.map(game => {
+    const selected = scanSelectedIds.has(game.appId);
+    return `<article class="scan-candidate ${selected ? 'selected' : ''}" data-scan-appid="${escapeHtml(game.appId)}">
+      <button type="button" class="scan-check ${selected ? 'checked' : ''}" data-scan-action="toggle" data-appid="${escapeHtml(game.appId)}" aria-pressed="${selected ? 'true' : 'false'}">${selected ? '✓' : ''}</button>
+      <div class="scan-candidate-main">
+        <button type="button" class="scan-game-title" data-scan-action="add" data-appid="${escapeHtml(game.appId)}">${escapeHtml(game.name)}</button>
+        <div class="game-id">Steam App ID ${escapeHtml(game.appId)} · Build lokal ${escapeHtml(game.localBuildId || 'belum terbaca')}</div>
+      </div>
+      <button type="button" class="button small primary" data-scan-action="add" data-appid="${escapeHtml(game.appId)}">Tambah ke library</button>
+    </article>`;
+  }).join('');
+
+  el('scan-selected-count').textContent = String(scanSelectedIds.size);
+  el('scan-add-selected').disabled = scanSelectedIds.size === 0;
+}
+
+el('scan-search')?.addEventListener('input', renderScanCandidates);
+el('scan-select-all')?.addEventListener('click', () => {
+  getVisibleScanCandidates().forEach(game => scanSelectedIds.add(game.appId));
+  renderScanCandidates();
+});
+el('scan-clear-selection')?.addEventListener('click', () => {
+  scanSelectedIds.clear();
+  renderScanCandidates();
+});
+el('clear-scan')?.addEventListener('click', () => {
+  resetScanSession();
+  el('scan-status').textContent = 'Hasil scan dibersihkan. Tidak ada data scan yang disimpan.';
+});
+
+el('scan-candidate-list')?.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-scan-action]');
+  if (!button) return;
+  const appId = String(button.dataset.appid || '');
+  if (button.dataset.scanAction === 'toggle') {
+    if (scanSelectedIds.has(appId)) scanSelectedIds.delete(appId);
+    else scanSelectedIds.add(appId);
+    renderScanCandidates();
+    return;
+  }
+  if (button.dataset.scanAction === 'add') {
+    await addScannedGames([appId], button);
+  }
+});
+
+el('scan-add-selected')?.addEventListener('click', async () => {
+  await addScannedGames([...scanSelectedIds], el('scan-add-selected'));
+});
+
+async function addScannedGames(appIds, triggerButton) {
+  const ids = [...new Set(appIds.map(String))].filter(Boolean);
+  if (!ids.length) return;
+  const selected = scanCandidates.filter(game => ids.includes(game.appId));
+  if (!selected.length) return;
+
+  const originalText = triggerButton?.textContent;
+  if (triggerButton) {
+    triggerButton.disabled = true;
+    triggerButton.textContent = selected.length > 1 ? `Menambahkan ${selected.length} game…` : 'Menambahkan…';
+  }
+
+  let added = 0;
+  try {
+    for (const candidate of selected) {
+      let info = candidate;
+      try {
+        const latest = await fetchSteamInfo(candidate.appId);
+        info = { ...candidate, ...latest, appId: candidate.appId, localBuildId: candidate.localBuildId, source: 'steam-folder' };
+      } catch (_) {}
+      await saveGame(info);
+      added += 1;
+      scanCandidates = scanCandidates.filter(game => game.appId !== candidate.appId);
+      scanSelectedIds.delete(candidate.appId);
+    }
+    toast(`${added} game ditambahkan ke library.`);
+    renderScanResults();
+  } catch (error) {
+    toast(friendlyFirebaseError(error), 'error');
+  } finally {
+    if (triggerButton) {
+      triggerButton.disabled = false;
+      triggerButton.textContent = originalText || 'Tambah ke library';
+    }
+  }
+}
 
 async function findManifests(handle, output, depth) {
   if (depth > 3) return;
