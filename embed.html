@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YOSENOV Game Updates</title><meta name="robots" content="index,follow">
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body class="embed">
+  <main class="shell">
+    <div class="metrics">
+      <article class="metric"><div class="metric-label">Total game</div><div class="metric-value" id="m-total">0</div></article>
+      <article class="metric"><div class="metric-label">Game perlu update</div><div class="metric-value" id="m-game">0</div></article>
+      <article class="metric"><div class="metric-label">Terjemahan perlu update</div><div class="metric-value" id="m-translation">0</div></article>
+      <article class="metric"><div class="metric-label">Siap / sinkron</div><div class="metric-value" id="m-ready">0</div></article>
+    </div>
+    <section class="panel">
+      <div class="toolbar"><div class="toolbar-group"><input id="search" class="input search" type="search" placeholder="Cari game"><select id="filter" class="select"><option value="all">Semua status</option><option value="translation">Terjemahan perlu update</option><option value="game">Game perlu update</option><option value="ready">Sudah sinkron</option></select></div><div id="last-sync" class="game-id">Memuat…</div></div>
+      <div id="games" class="games"></div><div id="empty" class="empty hidden">Belum ada game.</div>
+    </section>
+  </main>
+<script type="module" src="/assets/public.js"></script>
+</body>
+</html>

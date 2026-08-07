@@ -1,0 +1,7 @@
+<svg width="220" height="52" viewBox="0 0 220 52" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="YOSENOV">
+  <rect x="1" y="1" width="50" height="50" rx="15" fill="url(#g)"/>
+  <path d="M14 15L26 28L38 15M26 28V39" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M63 35V17H68.4L74.1 26.2L79.8 17H85.2V35H80.3V24.5L74.1 33.8L67.9 24.5V35H63Z" fill="currentColor" opacity="0"/>
+  <text x="62" y="34" fill="url(#textg)" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="23" font-weight="800" letter-spacing="1.8">YOSENOV</text>
+  <defs><linearGradient id="g" x1="7" y1="4" x2="47" y2="50" gradientUnits="userSpaceOnUse"><stop stop-color="#6C7CFF"/><stop offset="1" stop-color="#36C5B3"/></linearGradient><linearGradient id="textg" x1="62" y1="12" x2="213" y2="41" gradientUnits="userSpaceOnUse"><stop stop-color="#5267F7"/><stop offset="1" stop-color="#36A995"/></linearGradient></defs>
+</svg>

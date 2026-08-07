@@ -1,0 +1,20 @@
+name: Daily Steam build sync
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 1 * * *' # 08:00 WIB
+permissions:
+  contents: read
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Sync Firestore with Steam builds
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/sync-firestore.mjs
