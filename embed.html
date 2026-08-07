@@ -3,18 +3,19 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>YOSENOV Game Updates</title><meta name="robots" content="index,follow">
-  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="icon" href="/assets/logo.svg"><link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body class="embed">
-  <main class="shell">
-    <div class="metrics">
-      <article class="metric"><div class="metric-label">Total game</div><div class="metric-value" id="m-total">0</div></article>
-      <article class="metric"><div class="metric-label">Game perlu update</div><div class="metric-value" id="m-game">0</div></article>
-      <article class="metric"><div class="metric-label">Terjemahan perlu update</div><div class="metric-value" id="m-translation">0</div></article>
-      <article class="metric"><div class="metric-label">Siap / sinkron</div><div class="metric-value" id="m-ready">0</div></article>
+  <main class="shell embed-shell">
+    <div class="embed-toolbar"><span id="embed-title">YOSENOV Game Updates</span><button class="icon-button small-theme" data-theme-toggle aria-label="Ganti tema">☾</button></div>
+    <div class="metrics" id="embed-metrics" aria-label="Filter cepat berdasarkan status">
+      <button type="button" class="metric metric-button active" data-metric-filter="all"><div class="metric-label">Total game</div><div class="metric-value" id="m-total">0</div><div class="metric-hint">Tampilkan semua</div></button>
+      <button type="button" class="metric metric-button" data-metric-filter="game"><div class="metric-label">Game perlu update</div><div class="metric-value" id="m-game">0</div><div class="metric-hint">Lihat game tertinggal</div></button>
+      <button type="button" class="metric metric-button" data-metric-filter="translation"><div class="metric-label">Terjemahan perlu update</div><div class="metric-value" id="m-translation">0</div><div class="metric-hint">Prioritas terjemahan</div></button>
+      <button type="button" class="metric metric-button" data-metric-filter="ready"><div class="metric-label">Siap / sinkron</div><div class="metric-value" id="m-ready">0</div><div class="metric-hint">Sudah sesuai patch</div></button>
     </div>
-    <section class="panel">
-      <div class="toolbar"><div class="toolbar-group"><input id="search" class="input search" type="search" placeholder="Cari game"><select id="filter" class="select"><option value="all">Semua status</option><option value="translation">Terjemahan perlu update</option><option value="game">Game perlu update</option><option value="ready">Sudah sinkron</option></select></div><div id="last-sync" class="game-id">Memuat…</div></div>
+    <section class="panel" id="embed-panel">
+      <div class="toolbar" id="embed-filterbar"><div class="toolbar-group"><input id="search" class="input search" type="search" placeholder="Cari game"><select id="filter" class="select"><option value="all">Semua status</option><option value="translation">Terjemahan perlu update</option><option value="game">Game perlu update</option><option value="ready">Sudah sinkron</option></select></div><div id="last-sync" class="game-id">Memuat…</div></div>
       <div id="games" class="games"></div><div id="empty" class="empty hidden">Belum ada game.</div>
     </section>
   </main>

@@ -56,7 +56,7 @@ function bindFirebaseAuth() {
       if (!adminRecord.exists()) {
         await signOut(auth);
         setFirebaseStatus(`UID ${user.uid} belum terdaftar di Firestore collection admins.`, 'error');
-        toast('Login Firebase berhasil, tetapi UID ini belum terdaftar sebagai admin.', 'error');
+        toast('Login berhasil, tetapi akun ini belum diberi akses admin.', 'error');
         return;
       }
       setFirebaseStatus(`Admin aktif: ${user.email || user.uid}`, 'success');
@@ -109,17 +109,87 @@ function subscribeGames() {
   }, error => toast(friendlyFirebaseError(error), 'error'));
 }
 
+function setAdminFilter(value) {
+  el('admin-filter').value = value;
+  document.querySelectorAll('[data-admin-filter]').forEach((button) => {
+    const active = button.dataset.adminFilter === value;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
 function renderAdmin() {
   const keyword = el('admin-search').value.trim().toLowerCase();
-  const filtered = games.filter(g => `${g.name || ''} ${g.appId || ''}`.toLowerCase().includes(keyword));
+  const filter = el('admin-filter').value || 'all';
+  const statuses = games.map(game => ({ game, status: getStatus(game) }));
+
+  el('a-total').textContent = games.length;
+  el('a-game').textContent = statuses.filter(({status}) => status.gameNeedsUpdate).length;
+  el('a-translation').textContent = statuses.filter(({status}) => status.translationNeedsUpdate).length;
+  el('a-ready').textContent = statuses.filter(({status}) => status.ready).length;
+
+  const filtered = statuses.filter(({game, status}) => {
+    const searchOk = `${game.name || ''} ${game.appId || ''}`.toLowerCase().includes(keyword);
+    const filterOk = filter === 'all'
+      || (filter === 'translation' && status.translationNeedsUpdate)
+      || (filter === 'game' && status.gameNeedsUpdate)
+      || (filter === 'ready' && status.ready);
+    return searchOk && filterOk;
+  });
+
   el('admin-empty').classList.toggle('hidden', filtered.length > 0);
-  el('admin-list').innerHTML = filtered.map(game => {
-    const status = getStatus(game);
-    const statusText = status.translationNeedsUpdate ? 'Terjemahan perlu update' : status.gameNeedsUpdate ? 'Game perlu update' : status.ready ? 'Sinkron' : 'Perlu data build';
-    return `<article class="admin-item"><img src="${escapeHtml(game.coverUrl || '/assets/logo.svg')}" alt=""><div><h3>${escapeHtml(game.name || game.appId)}</h3><p>App ${escapeHtml(game.appId)} · lokal ${escapeHtml(game.localBuildId || '-')} · publik ${escapeHtml(game.remoteBuildId || '-')} · ${statusText}</p></div><div class="admin-item-actions"><button class="button small" data-action="sync" data-id="${game.id}">Sync</button><button class="button small primary" data-action="mark" data-id="${game.id}">Terjemahan selesai</button><button class="button small" data-action="edit" data-id="${game.id}">Edit</button><button class="button small danger" data-action="delete" data-id="${game.id}">Hapus</button></div></article>`;
-  }).join('');
+  el('admin-list').innerHTML = filtered.map(({game, status}) => adminCard(game, status)).join('');
+  setAdminFilter(filter);
 }
+
+function adminCard(game, status) {
+  const notes = String(game.notes || '').trim();
+  const translationState = !game.remoteBuildId
+    ? { cls: 'neutral', title: 'Menunggu build publik', detail: 'Sync data game terlebih dahulu.' }
+    : !game.translationBuildId
+      ? { cls: 'danger', title: 'Terjemahan belum ditandai', detail: 'Belum ada build terjemahan yang dikonfirmasi.' }
+      : status.translationNeedsUpdate
+        ? { cls: 'danger', title: 'Terjemahan perlu update', detail: `Terjemahan ${game.translationBuildId} → patch ${game.remoteBuildId}` }
+        : { cls: 'success', title: 'Terjemahan sudah sesuai', detail: `Sesuai build ${game.remoteBuildId}` };
+
+  const gameState = status.gameNeedsUpdate
+    ? { cls: 'warning', title: 'Game perlu update' }
+    : status.localUnknown
+      ? { cls: 'neutral', title: 'Build lokal belum dipindai' }
+      : status.remoteUnknown
+        ? { cls: 'neutral', title: 'Build publik belum tersedia' }
+        : { cls: 'success', title: 'Game terbaru' };
+
+  const markDisabled = !game.remoteBuildId || (!status.translationNeedsUpdate && game.translationBuildId === game.remoteBuildId);
+  const markText = markDisabled && game.translationBuildId === game.remoteBuildId ? '✓ Terjemahan sesuai' : '✓ Tandai terjemahan selesai';
+
+  return `<article class="admin-game-card ${translationState.cls === 'danger' ? 'needs-translation' : ''}">
+    <img class="admin-cover" src="${escapeHtml(game.coverUrl || '/assets/logo.svg')}" alt="">
+    <div class="admin-game-main">
+      <div class="admin-game-title-row"><div><h3>${escapeHtml(game.name || game.appId)}</h3><div class="game-id">Steam App ID ${escapeHtml(game.appId)}</div></div><div class="admin-status-pills"><span class="badge ${gameState.cls}">${gameState.title}</span><span class="badge ${translationState.cls}">${translationState.title}</span></div></div>
+      <div class="admin-build-grid"><div><span>Lokal</span><strong>${escapeHtml(game.localBuildId || 'Belum dipindai')}</strong></div><div><span>Publik</span><strong>${escapeHtml(game.remoteBuildId || 'Belum tersedia')}</strong></div><div><span>Terjemahan</span><strong>${escapeHtml(game.translationBuildId || 'Belum ditandai')}</strong></div></div>
+      <div class="translation-callout ${translationState.cls}"><strong>${translationState.title}</strong><span>${escapeHtml(translationState.detail)}</span></div>
+      ${notes ? `<div class="admin-note"><span>Catatan</span><p>${escapeHtml(notes)}</p></div>` : ''}
+      <div class="admin-item-actions">
+        <button class="button small" data-action="sync" data-id="${game.id}">↻ Sync</button>
+        <button class="button small primary" data-action="mark" data-id="${game.id}" ${markDisabled ? 'disabled' : ''}>${markText}</button>
+        <button class="button small" data-action="edit" data-id="${game.id}">Edit / Catatan</button>
+        <button class="button small" data-action="embed" data-id="${game.id}">Embed Blogspot</button>
+        <button class="button small danger" data-action="delete" data-id="${game.id}">Hapus</button>
+      </div>
+    </div>
+  </article>`;
+}
+
 el('admin-search').addEventListener('input', renderAdmin);
+el('admin-filter').addEventListener('change', renderAdmin);
+document.querySelectorAll('[data-admin-filter]').forEach((button) => {
+  button.addEventListener('click', () => {
+    setAdminFilter(button.dataset.adminFilter || 'all');
+    renderAdmin();
+    el('library').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
 
 el('add-form').addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -130,9 +200,19 @@ el('add-form').addEventListener('submit', async (event) => {
   button.textContent = 'Mengambil data…';
   try {
     const info = await fetchSteamInfo(appId);
-    await saveGame({ ...info, appId, name: el('custom-name').value.trim() || info.name || `Steam App ${appId}`, localBuildId: el('local-build').value.trim() || '', source: 'manual' });
+    const newGame = {
+      ...info,
+      appId,
+      name: el('custom-name').value.trim() || info.name || `Steam App ${appId}`,
+      localBuildId: el('local-build').value.trim() || '',
+      source: 'manual'
+    };
+    const newNotes = el('add-notes').value.trim();
+    if (newNotes) newGame.notes = newNotes;
+    await saveGame(newGame);
     event.target.reset();
     toast('Game berhasil ditambahkan.');
+    el('library').scrollIntoView({ behavior: 'smooth' });
   } catch (error) {
     toast(error.message, 'error');
   } finally {
@@ -147,6 +227,7 @@ async function saveGame(game) {
   const ref = doc(firebase.db, 'games', String(game.appId));
   const existing = await getDoc(ref);
   const previous = existing.exists() ? existing.data() : {};
+  const hasNotes = Object.prototype.hasOwnProperty.call(game, 'notes');
   const payload = {
     appId: String(game.appId),
     name: game.name || previous.name || `Steam App ${game.appId}`,
@@ -157,7 +238,7 @@ async function saveGame(game) {
     latestPatchAt: game.latestPatchAt || previous.latestPatchAt || '',
     latestNewsUrl: game.latestNewsUrl || previous.latestNewsUrl || '',
     source: game.source || previous.source || 'manual',
-    notes: previous.notes || '',
+    notes: hasNotes ? String(game.notes || '') : String(previous.notes || ''),
     syncedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -170,16 +251,22 @@ el('admin-list').addEventListener('click', async (event) => {
   if (!button || !firebase) return;
   const game = games.find(g => g.id === button.dataset.id);
   if (!game) return;
+
+  if (button.dataset.action === 'edit') return openEdit(game);
+  if (button.dataset.action === 'embed') return openEmbed(game);
+
   try {
     button.disabled = true;
     const { doc, updateDoc, deleteDoc } = firebase.firestoreModule;
     if (button.dataset.action === 'sync') await syncOne(game);
     if (button.dataset.action === 'mark') {
       if (!game.remoteBuildId) throw new Error('Build publik belum tersedia. Sync terlebih dahulu.');
-      await updateDoc(doc(firebase.db, 'games', game.id), { translationBuildId: String(game.remoteBuildId), updatedAt: new Date().toISOString() });
-      toast('Build terjemahan ditandai selesai.');
+      await updateDoc(doc(firebase.db, 'games', game.id), {
+        translationBuildId: String(game.remoteBuildId),
+        updatedAt: new Date().toISOString()
+      });
+      toast('Terjemahan ditandai sesuai patch terbaru.');
     }
-    if (button.dataset.action === 'edit') openEdit(game);
     if (button.dataset.action === 'delete' && confirm(`Hapus ${game.name} dari library?`)) {
       await deleteDoc(doc(firebase.db, 'games', game.id));
       toast('Game dihapus.');
@@ -194,21 +281,26 @@ el('admin-list').addEventListener('click', async (event) => {
 async function syncOne(game) {
   const info = await fetchSteamInfo(game.appId);
   await saveGame({ ...game, ...info, localBuildId: game.localBuildId, source: game.source });
-  toast(`${game.name} sudah disinkronkan.`);
+  toast(`${game.name} sudah diperiksa.`);
 }
 
 el('sync-all').addEventListener('click', async () => {
   if (!games.length) return toast('Library masih kosong.');
-  const progress = el('scan-progress');
-  const status = el('scan-status');
+  const button = el('sync-all');
+  const progress = el('bulk-progress');
+  const status = el('bulk-status');
+  button.disabled = true;
+  button.textContent = 'Memeriksa…';
   for (let i = 0; i < games.length; i++) {
-    status.textContent = `Menyinkronkan ${i + 1}/${games.length}: ${games[i].name}`;
+    status.textContent = `Memeriksa ${i + 1}/${games.length}: ${games[i].name}`;
     progress.style.width = `${Math.round((i / games.length) * 100)}%`;
     try { await syncOne(games[i]); } catch (error) { console.error(error); }
     await new Promise(r => setTimeout(r, 180));
   }
   progress.style.width = '100%';
   status.textContent = 'Semua game selesai diperiksa.';
+  button.disabled = false;
+  button.textContent = '↻ Cek seluruh update';
 });
 
 el('scan-folder').addEventListener('click', async () => {
@@ -266,6 +358,20 @@ function openEdit(game) {
   el('edit-modal').classList.remove('hidden');
 }
 
+function openEmbed(game) {
+  const url = `${window.location.origin}/embed.html?game=${encodeURIComponent(game.appId)}&compact=1`;
+  const code = `<iframe src="${url}" title="Status update ${escapeAttribute(game.name || `Steam App ${game.appId}`)}" width="100%" height="420" style="border:0;display:block;width:100%;" loading="lazy"></iframe>`;
+  el('embed-game-name').value = game.name || `Steam App ${game.appId}`;
+  el('embed-url').value = url;
+  el('embed-code').value = code;
+  el('preview-embed').href = url;
+  el('embed-modal').classList.remove('hidden');
+}
+
+function escapeAttribute(value = '') {
+  return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 el('close-modal').addEventListener('click', () => el('edit-modal').classList.add('hidden'));
 el('edit-modal').addEventListener('click', e => { if (e.target === el('edit-modal')) el('edit-modal').classList.add('hidden'); });
 el('edit-form').addEventListener('submit', async event => {
@@ -281,6 +387,20 @@ el('edit-form').addEventListener('submit', async event => {
   });
   el('edit-modal').classList.add('hidden');
   toast('Perubahan disimpan.');
+});
+
+el('close-embed').addEventListener('click', () => el('embed-modal').classList.add('hidden'));
+el('embed-modal').addEventListener('click', e => { if (e.target === el('embed-modal')) el('embed-modal').classList.add('hidden'); });
+el('copy-embed').addEventListener('click', async () => {
+  const code = el('embed-code').value;
+  try {
+    await navigator.clipboard.writeText(code);
+    toast('Kode embed berhasil disalin.');
+  } catch (_) {
+    el('embed-code').select();
+    document.execCommand('copy');
+    toast('Kode embed berhasil disalin.');
+  }
 });
 
 boot();

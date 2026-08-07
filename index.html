@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>YOSENOV Patch Monitor — Update Game & Terjemahan Indonesia</title>
-  <meta name="description" content="Pantau build terbaru game Steam dan status pembaruan terjemahan Bahasa Indonesia dari satu library.">
+  <meta name="description" content="Pantau update game Steam dan kesiapan terjemahan Bahasa Indonesia dalam satu library yang mudah dibaca.">
   <meta name="theme-color" content="#5267f7">
   <meta property="og:title" content="YOSENOV Patch Monitor">
-  <meta property="og:description" content="Library publik untuk memantau patch game dan kesiapan terjemahan Bahasa Indonesia.">
+  <meta property="og:description" content="Pantau game yang mendapat patch baru dan status terjemahan Bahasa Indonesianya.">
   <link rel="icon" href="/assets/logo.svg">
   <link rel="stylesheet" href="/assets/styles.css">
 </head>
@@ -19,16 +19,16 @@
 <main>
   <section class="hero"><div class="shell">
     <div class="eyebrow">Game Localization Tracker</div>
-    <h1>Patch berubah, status terjemahan langsung terlihat.</h1>
-    <p>YOSENOV menampilkan build lokal, build publik terbaru, dan build terjemahan Bahasa Indonesia. Data library diperbarui secara realtime melalui Firebase.</p>
-    <div class="notice">Sumber build otomatis menggunakan data Steam/SteamCMD. Tautan SteamDB disediakan pada setiap game untuk pemeriksaan patch notes secara manual.</div>
+    <h1>Pantau update game dan status terjemahan Indonesia dengan lebih mudah.</h1>
+    <p>Lihat game yang sudah terbaru, game yang masih perlu diperbarui, serta terjemahan Bahasa Indonesia yang perlu disesuaikan setelah patch baru dirilis.</p>
+    <div class="notice">Informasi build diperiksa dari Steam. Gunakan tautan SteamDB pada setiap game untuk melihat riwayat patch secara lebih rinci.</div>
   </div></section>
   <section class="shell">
-    <div class="metrics">
-      <article class="metric"><div class="metric-label">Total game</div><div class="metric-value" id="m-total">0</div></article>
-      <article class="metric"><div class="metric-label">Game perlu update</div><div class="metric-value" id="m-game">0</div></article>
-      <article class="metric"><div class="metric-label">Terjemahan perlu update</div><div class="metric-value" id="m-translation">0</div></article>
-      <article class="metric"><div class="metric-label">Siap / sinkron</div><div class="metric-value" id="m-ready">0</div></article>
+    <div class="metrics" aria-label="Filter cepat berdasarkan status">
+      <button type="button" class="metric metric-button active" data-metric-filter="all"><div class="metric-label">Total game</div><div class="metric-value" id="m-total">0</div><div class="metric-hint">Tampilkan semua</div></button>
+      <button type="button" class="metric metric-button" data-metric-filter="game"><div class="metric-label">Game perlu update</div><div class="metric-value" id="m-game">0</div><div class="metric-hint">Lihat game tertinggal</div></button>
+      <button type="button" class="metric metric-button" data-metric-filter="translation"><div class="metric-label">Terjemahan perlu update</div><div class="metric-value" id="m-translation">0</div><div class="metric-hint">Prioritas terjemahan</div></button>
+      <button type="button" class="metric metric-button" data-metric-filter="ready"><div class="metric-label">Siap / sinkron</div><div class="metric-value" id="m-ready">0</div><div class="metric-hint">Sudah sesuai patch</div></button>
     </div>
     <section class="panel">
       <div class="toolbar"><div class="toolbar-group"><input id="search" class="input search" type="search" placeholder="Cari nama game atau App ID"><select id="filter" class="select"><option value="all">Semua status</option><option value="translation">Terjemahan perlu update</option><option value="game">Game perlu update</option><option value="ready">Sudah sinkron</option></select></div><div id="last-sync" class="game-id">Memuat library…</div></div>
@@ -37,7 +37,7 @@
     </section>
   </section>
 </main>
-<footer class="footer"><div class="shell">YOSENOV Patch Monitor · Public view tanpa login</div></footer>
+<footer class="footer"><div class="shell">YOSENOV Patch Monitor · Daftar status game dan terjemahan Bahasa Indonesia</div></footer>
 <script src="/assets/theme.js" defer></script>
 <script type="module" src="/assets/public.js"></script>
 </body>

@@ -124,3 +124,62 @@ UID user belum menjadi Document ID pada collection `admins`.
 
 ### `Missing or insufficient permissions`
 Publish `firestore.rules` dari repository ke Firebase Console.
+
+## 8. Revisi UI status & Blogspot embed per game
+
+Versi ini menambahkan beberapa kemudahan pengelolaan:
+
+- Kartu **Total game**, **Game perlu update**, **Terjemahan perlu update**, dan **Siap / sinkron** dapat diklik sebagai filter cepat pada halaman utama dan View Mode.
+- Dashboard admin memiliki ringkasan status yang juga dapat diklik.
+- Status game dan status terjemahan dipisahkan menjadi dua panel agar tidak tertukar.
+- Catatan game bersifat opsional. Catatan tidak ditampilkan jika kosong; setelah admin mengisi catatan, catatan akan muncul pada kartu game publik dan embed.
+- Admin dapat menyalin kode **Embed Blogspot** untuk satu game saja.
+- View Mode memiliki tombol dark/light mode.
+
+### Embed seluruh library
+
+```html
+<iframe
+  src="https://DOMAIN-ANDA.vercel.app/embed.html"
+  title="YOSENOV Game Update Library"
+  width="100%"
+  height="900"
+  style="border:0;display:block;width:100%;"
+  loading="lazy">
+</iframe>
+```
+
+### Embed satu game saja
+
+Gunakan Steam App ID sebagai parameter `game`:
+
+```text
+https://DOMAIN-ANDA.vercel.app/embed.html?game=374900&compact=1
+```
+
+Parameter `game` juga menerima nama/slug game, tetapi **Steam App ID lebih direkomendasikan** karena tidak berubah ketika judul game diubah.
+
+Di dashboard admin, klik **Embed Blogspot** pada game yang diinginkan. Kode iframe dibuat otomatis dan dapat langsung ditempel pada mode HTML postingan Blogspot, misalnya tepat setelah:
+
+```text
+📅 Update Terakhir: 20 Juli 2026
+```
+
+Contoh:
+
+```html
+<p><strong>📅 Update Terakhir:</strong> 20 Juli 2026</p>
+
+<iframe
+  src="https://DOMAIN-ANDA.vercel.app/embed.html?game=374900&compact=1"
+  title="Status update Agatha Christie - The ABC Murders"
+  width="100%"
+  height="420"
+  style="border:0;display:block;width:100%;"
+  loading="lazy">
+</iframe>
+
+<p><strong>Life is Strange 2</strong> adalah game petualangan naratif...</p>
+```
+
+Jika kartu memuat catatan yang panjang, tinggi iframe dapat dinaikkan dari `420` menjadi `480` atau `520`.
