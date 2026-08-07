@@ -61,7 +61,7 @@ button { cursor: pointer; }
 }
 .topbar-inner { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .brand { display: flex; align-items: center; text-decoration: none; color: var(--text); }
-.brand img { width: 190px; height: auto; color: var(--text); }
+.brand img { width: 88px; height: auto; display: block; }
 .nav-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .icon-button, .button {
   border: 1px solid var(--border); background: var(--surface-solid); color: var(--text);
@@ -152,7 +152,7 @@ body.embed .metrics { margin-top: 0; }
 @media (max-width: 620px) {
   .shell { width: min(100% - 20px, 1180px); }
   .topbar-inner { min-height: 66px; }
-  .brand img { width: 155px; }
+  .brand img { width: 72px; }
   .hero { padding-top: 42px; }
   .metrics { grid-template-columns: 1fr 1fr; gap: 9px; }
   .metric { padding: 15px; }
