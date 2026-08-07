@@ -4,7 +4,7 @@
 <body>
 <header class="topbar"><div class="shell topbar-inner"><a class="brand" href="/"><img src="/assets/logo.svg" alt="YOSENOV"></a><nav class="nav-actions"><a class="button ghost" href="/" target="_blank">Lihat publik</a><button class="icon-button" data-theme-toggle aria-label="Ganti tema">☾</button></nav></div></header>
 <main class="shell">
-  <section id="login-view" class="login-wrap"><form id="login-form" class="login-card"><h1>Admin YOSENOV</h1><p>Masuk untuk menambah, menyinkronkan, menandai build terjemahan, dan menghapus game.</p><div class="form-grid"><div class="field"><label for="email">Email</label><input class="input" id="email" type="email" autocomplete="username" required></div><div class="field"><label for="password">Password</label><input class="input" id="password" type="password" autocomplete="current-password" required></div><button class="button primary" type="submit">Masuk</button></div></form></section>
+  <section id="login-view" class="login-wrap"><form id="login-form" class="login-card"><h1>Admin YOSENOV</h1><p>Masuk untuk menambah, menyinkronkan, menandai build terjemahan, dan menghapus game.</p><div class="form-grid"><div class="field"><label for="email">Email</label><input class="input" id="email" type="email" autocomplete="username" required></div><div class="field"><label for="password">Password</label><input class="input" id="password" type="password" autocomplete="current-password" required></div><button class="button primary" id="login-submit" type="submit">Masuk</button><div id="firebase-status" class="setup-status" role="status">Memeriksa Firebase…</div></div></form></section>
   <section id="admin-view" class="admin-layout hidden">
     <aside class="sidebar"><button class="button primary" data-scroll="#add">＋ Tambah game</button><button class="button" data-scroll="#scanner">⌁ Sync laptop</button><button class="button" data-scroll="#library">▦ Kelola library</button><button class="button danger" id="logout">Keluar</button></aside>
     <div>
@@ -15,5 +15,6 @@
   </section>
 </main>
 <div id="edit-modal" class="modal-backdrop hidden"><form id="edit-form" class="modal"><h2>Edit game</h2><input type="hidden" id="edit-id"><div class="form-grid"><div class="field"><label>Nama</label><input class="input" id="edit-name" required></div><div class="field"><label>Build lokal</label><input class="input" id="edit-local"></div><div class="field"><label>Build terjemahan</label><input class="input" id="edit-translation"></div><div class="field"><label>Catatan</label><textarea class="textarea" id="edit-notes" rows="4"></textarea></div><div class="toolbar-group"><button class="button primary" type="submit">Simpan</button><button class="button" type="button" id="close-modal">Batal</button></div></div></form></div>
+<script src="/assets/theme.js" defer></script>
 <script type="module" src="/assets/admin.js"></script>
 </body></html>

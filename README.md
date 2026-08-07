@@ -1,99 +1,126 @@
-# YOSENOV Patch Monitor
+# YOSENOV Patch Monitor — Fixed Firebase/Vercel Edition
 
-Website gratis untuk memantau:
+Website gratis untuk memantau build game Steam dan status pembaruan terjemahan Bahasa Indonesia.
 
-- build game yang terpasang di laptop;
-- build publik terbaru di Steam;
-- build terakhir yang sudah didukung terjemahan Bahasa Indonesia;
-- status game perlu update / terjemahan perlu update;
-- public view tanpa login dan embed Blogspot;
-- admin login, tambah manual, scan folder Steam, sync, edit, tandai terjemahan selesai, dan hapus game;
-- dark/light mode;
-- sinkronisasi otomatis harian melalui GitHub Actions.
+## Perbaikan versi ini
 
-## Arsitektur gratis
+- Dark/light mode sekarang **mandiri** (`assets/theme.js`) dan tetap berfungsi walaupun Firebase gagal dimuat.
+- Firebase tidak lagi wajib ditulis di source code. Konfigurasi Web App dapat diambil dari **Vercel Environment Variables** melalui `/api/firebase-config`.
+- Login admin menampilkan status koneksi Firebase dan pesan error yang lebih jelas.
+- Firebase SDK diperbarui ke 12.16.0.
+- Public view tetap tampil dan memberi pesan setup apabila Firebase belum dikonfigurasi.
+- Service account tetap tidak pernah dikirim ke browser dan tidak disimpan di repository.
 
-- **Vercel Hobby**: hosting website dan API proxy `/api/steam`.
-- **Firebase Spark**: Email/Password Authentication + Cloud Firestore realtime.
-- **GitHub**: penyimpanan source code dan GitHub Actions untuk sync build harian.
-- **Steam Store + Steam News + SteamCMD API**: metadata, berita patch, dan public build ID.
-- **SteamDB**: tautan referensi patch notes pada tiap game, bukan scraping otomatis.
+## 1. Firebase: buat Web App
 
-## Batasan yang perlu dipahami
+Firebase Console > Project settings > General > Your apps > Add app > Web.
+Salin nilai pada `firebaseConfig`.
 
-Browser tidak boleh memindai hard disk tanpa izin. Tombol **Pilih Steam Folder** menggunakan File System Access API, sehingga pengguna tetap harus memilih folder `steamapps`. Fitur ini paling stabil di Chrome/Edge desktop. Untuk library Steam di beberapa drive, pilih masing-masing folder `steamapps` satu per satu.
+Aktifkan juga:
 
-## 1. Buat proyek Firebase
+1. Authentication > Sign-in method > **Email/Password** > Enable.
+2. Authentication > Users > Add user.
+3. Firestore Database > Create database.
+4. Firestore > Rules > salin isi `firestore.rules` lalu Publish.
 
-1. Buka Firebase Console dan buat project baru.
-2. Tambahkan **Web App**.
-3. Aktifkan **Authentication > Sign-in method > Email/Password**.
-4. Buat **Cloud Firestore** dalam Production mode.
-5. Salin web config ke `assets/firebase-config.js`.
-6. Deploy isi `firestore.rules` melalui Firebase Console > Firestore > Rules.
+## 2. Vercel Environment Variables
 
-## 2. Buat akun admin pertama
+Vercel > Project > Settings > Environment Variables. Tambahkan untuk **Production, Preview, Development**:
 
-1. Authentication > Users > Add user.
-2. Salin UID user tersebut.
-3. Firestore > Start collection: `admins`.
-4. Document ID = UID user. Tambahkan field opsional `email` bertipe string.
+- `FIREBASE_WEB_API_KEY`
+- `FIREBASE_WEB_AUTH_DOMAIN`
+- `FIREBASE_WEB_PROJECT_ID`
+- `FIREBASE_WEB_STORAGE_BUCKET`
+- `FIREBASE_WEB_MESSAGING_SENDER_ID`
+- `FIREBASE_WEB_APP_ID`
 
-Hanya UID yang memiliki document pada `admins/{uid}` yang dapat mengubah library.
+Contoh pemetaan dari Firebase:
 
-## 3. Upload ke GitHub
+```text
+apiKey            -> FIREBASE_WEB_API_KEY
+authDomain        -> FIREBASE_WEB_AUTH_DOMAIN
+projectId         -> FIREBASE_WEB_PROJECT_ID
+storageBucket     -> FIREBASE_WEB_STORAGE_BUCKET
+messagingSenderId -> FIREBASE_WEB_MESSAGING_SENDER_ID
+appId             -> FIREBASE_WEB_APP_ID
+```
 
-Buat repository baru, lalu upload seluruh folder proyek ini. Jangan memasukkan service account ke file repository.
+Setelah menambah/mengubah Environment Variables, lakukan **Redeploy** di Vercel.
 
-## 4. Deploy ke Vercel
+> Firebase Web config bukan service account. Jangan pernah menaruh `private_key`, JSON service account, atau `firebase-adminsdk*.json` di repository.
 
-1. Login Vercel menggunakan GitHub.
-2. Add New Project > pilih repository.
-3. Framework Preset: **Other**.
-4. Build command: kosong.
-5. Output directory: kosong.
-6. Deploy.
+## 3. Daftarkan akun sebagai admin
 
-Setelah deploy, buka `/admin.html` dan login.
+Setelah membuat user di Authentication:
 
-## 5. Aktifkan sync otomatis harian
+1. Firebase Console > Authentication > Users.
+2. Salin **User UID** (bukan email).
+3. Firestore Database > Data > Start collection.
+4. Collection ID: `admins`.
+5. Document ID: **UID yang disalin persis**.
+6. Tambahkan field opsional `email` dengan tipe string dan isi email admin.
 
-GitHub repository > Settings > Secrets and variables > Actions > New repository secret:
+Contoh:
 
-- `FIREBASE_PROJECT_ID`: Project ID Firebase.
-- `FIREBASE_SERVICE_ACCOUNT`: isi JSON utuh service account Firebase.
+```text
+admins
+└── abcDEFG123456789       <- Document ID harus UID Authentication
+    └── email: "admin@example.com"
+```
 
-Membuat service account:
+## 4. Firestore Rules
 
-Firebase Console > Project settings > Service accounts > Generate new private key. Simpan JSON hanya sebagai GitHub Secret, jangan commit ke repository.
+Gunakan `firestore.rules` di repository. Public dapat membaca `games`, tetapi hanya user yang memiliki `admins/{UID}` yang boleh membuat/mengubah/menghapus game.
 
-Workflow `.github/workflows/daily-sync.yml` berjalan setiap hari pukul 08.00 WIB dan juga dapat dijalankan manual dari tab Actions.
+## 5. Deploy Vercel
 
-## 6. Embed ke Blogspot
+- Framework Preset: Other
+- Root Directory: `./`
+- Build Command: kosong
+- Output Directory: kosong
 
-Buka `BLOGSPOT-EMBED.html`, ganti domain, kemudian tempel iframe pada editor HTML Blogspot. Public view tidak memerlukan login.
+Setelah deploy, tes:
 
-## 7. Agar muncul di Google
+```text
+https://DOMAIN-ANDA.vercel.app/api/firebase-config
+```
 
-1. Ganti domain pada `robots.txt` dan `sitemap.xml`.
-2. Deploy ulang.
-3. Tambahkan domain Vercel ke Google Search Console.
-4. Submit `/sitemap.xml`.
+Jika benar, respons memiliki:
 
-## Alur status
+```json
+{"configured":true,"config":{...}}
+```
 
-- `localBuildId`: dibaca dari `appmanifest_*.acf` atau diisi manual.
-- `remoteBuildId`: build cabang public terbaru.
-- `translationBuildId`: build yang terakhir sudah selesai diterjemahkan.
-- Bila `remoteBuildId != localBuildId`, game perlu update.
-- Bila `remoteBuildId != translationBuildId`, terjemahan perlu update.
-- Tombol **Terjemahan selesai** mengisi `translationBuildId` dengan build publik terbaru.
+Lalu buka:
 
-## Contoh input
+```text
+https://DOMAIN-ANDA.vercel.app/admin.html
+```
 
-- App ID: `1796790`
-- SteamDB URL: `https://steamdb.info/app/1796790/patchnotes/`
+Status harus berubah menjadi **Firebase tersambung. Silakan login.**
 
-## Catatan sumber data
+## 6. GitHub Actions untuk sync otomatis
 
-SteamDB tidak menyediakan API publik. Proyek ini tidak melakukan scraping SteamDB. Build otomatis menggunakan SteamCMD API yang bersifat open-source, sedangkan berita patch memakai endpoint Steam News. Tautan SteamDB tetap tersedia untuk pemeriksaan detail patch.
+Service account hanya disimpan sebagai GitHub Repository Secrets:
+
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_SERVICE_ACCOUNT`
+
+Jangan commit service account ke repository.
+
+## 7. Troubleshooting cepat
+
+### Dark mode tidak bekerja
+Pastikan `/assets/theme.js` dapat dibuka dari domain Vercel dan lakukan hard refresh `Ctrl+F5`.
+
+### Login button nonaktif / Firebase belum dikonfigurasi
+Periksa `/api/firebase-config`, Environment Variables Vercel, lalu Redeploy.
+
+### Email/password salah
+Pastikan user ada di Firebase Authentication pada project yang sama dengan `FIREBASE_WEB_PROJECT_ID`.
+
+### Login berhasil lalu langsung keluar
+UID user belum menjadi Document ID pada collection `admins`.
+
+### `Missing or insufficient permissions`
+Publish `firestore.rules` dari repository ke Firebase Console.

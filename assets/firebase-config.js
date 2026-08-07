@@ -1,21 +1,46 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+// YOSENOV Firebase Web Configuration
+// Prioritas konfigurasi:
+// 1) Environment Variables Vercel melalui /api/firebase-config
+// 2) fallbackFirebaseConfig di file ini untuk penggunaan manual/local.
+//
+// Jangan pernah menaruh service account / private_key di file frontend ini.
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-export const firebaseConfig = {
-  apiKey: "AIzaSyDnZlELIrRoiuQzdhLV_GIbXkSuE2NuN1k",
-  authDomain: "ysnupdate-182f6.firebaseapp.com",
-  projectId: "ysnupdate-182f6",
-  storageBucket: "ysnupdate-182f6.firebasestorage.app",
-  messagingSenderId: "803224220954",
-  appId: "1:803224220954:web:d243c7037a07988d8528a3",
-  measurementId: "G-13S1FMD10F"
+export const fallbackFirebaseConfig = {
+  apiKey: '',
+  authDomain: '',
+  projectId: '',
+  storageBucket: '',
+  messagingSenderId: '',
+  appId: ''
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+export function isFirebaseConfigValid(config) {
+  if (!config || typeof config !== 'object') return false;
+  const required = ['apiKey', 'authDomain', 'projectId', 'appId'];
+  return required.every((key) => {
+    const value = String(config[key] || '').trim();
+    return value && !/GANTI_|YOUR_|PLACEHOLDER/i.test(value);
+  });
+}
+
+export async function loadFirebaseConfig() {
+  try {
+    const response = await fetch('/api/firebase-config', {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store'
+    });
+    if (response.ok) {
+      const payload = await response.json();
+      if (isFirebaseConfigValid(payload?.config)) return payload.config;
+    }
+  } catch (_) {
+    // Fallback ke konfigurasi lokal di bawah.
+  }
+
+  if (isFirebaseConfigValid(fallbackFirebaseConfig)) return fallbackFirebaseConfig;
+
+  throw new Error(
+    'Firebase belum dikonfigurasi. Isi FIREBASE_WEB_* di Vercel Project Settings > Environment Variables, lalu Redeploy.'
+  );
+}
