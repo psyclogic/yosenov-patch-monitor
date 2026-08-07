@@ -425,6 +425,96 @@ el('sync-all').addEventListener('click', async () => {
   button.textContent = '↻ Cek seluruh update';
 });
 
+
+// ===== V6: popup window for laptop sync =====
+const scanWindowBackdrop = el('scan-window-backdrop');
+const scanWindow = el('scan-window');
+const scanWindowBody = el('scan-window-body');
+const scanWindowMinimized = el('scan-window-minimized');
+
+function openScanWindow() {
+  if (!scanWindowBackdrop) return;
+  scanWindowBackdrop.classList.remove('hidden', 'minimized');
+  scanWindowBackdrop.setAttribute('aria-hidden', 'false');
+  scanWindowBody?.classList.remove('hidden');
+  scanWindowMinimized?.classList.add('hidden');
+  document.body.classList.add('scan-dialog-open');
+  window.setTimeout(() => el('scan-folder')?.focus(), 30);
+}
+
+function closeScanWindow() {
+  if (!scanWindowBackdrop) return;
+  scanWindowBackdrop.classList.add('hidden');
+  scanWindowBackdrop.classList.remove('minimized');
+  scanWindowBackdrop.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('scan-dialog-open');
+}
+
+function minimizeScanWindow() {
+  if (!scanWindowBackdrop) return;
+  scanWindowBackdrop.classList.add('minimized');
+  scanWindow?.classList.remove('maximized');
+  scanWindowBody?.classList.add('hidden');
+  scanWindowMinimized?.classList.remove('hidden');
+  document.body.classList.remove('scan-dialog-open');
+}
+
+function restoreScanWindow() {
+  if (!scanWindowBackdrop) return;
+  scanWindowBackdrop.classList.remove('minimized');
+  scanWindowBody?.classList.remove('hidden');
+  scanWindowMinimized?.classList.add('hidden');
+  document.body.classList.add('scan-dialog-open');
+}
+
+function toggleMaximizeScanWindow() {
+  if (!scanWindow) return;
+  scanWindow.style.transform = '';
+  scanWindow.dataset.dragX = '0';
+  scanWindow.dataset.dragY = '0';
+  scanWindow.classList.toggle('maximized');
+  const maximized = scanWindow.classList.contains('maximized');
+  const button = el('scan-window-maximize');
+  if (button) {
+    button.textContent = maximized ? '❐' : '□';
+    button.title = maximized ? 'Restore' : 'Maximize';
+    button.setAttribute('aria-label', maximized ? 'Restore' : 'Maximize');
+  }
+}
+
+el('open-scan-window')?.addEventListener('click', openScanWindow);
+el('sidebar-open-scan')?.addEventListener('click', openScanWindow);
+el('scan-window-close')?.addEventListener('click', closeScanWindow);
+el('scan-window-minimize')?.addEventListener('click', minimizeScanWindow);
+el('scan-window-restore')?.addEventListener('click', restoreScanWindow);
+el('scan-window-maximize')?.addEventListener('click', toggleMaximizeScanWindow);
+scanWindowBackdrop?.addEventListener('click', (event) => {
+  if (event.target === scanWindowBackdrop && !scanWindowBackdrop.classList.contains('minimized')) closeScanWindow();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && scanWindowBackdrop && !scanWindowBackdrop.classList.contains('hidden')) closeScanWindow();
+});
+
+// Desktop-like drag behavior. It never changes scan data or writes anything to storage.
+const scanTitlebar = document.querySelector('.scan-window-titlebar');
+let scanDrag = null;
+scanTitlebar?.addEventListener('pointerdown', (event) => {
+  if (event.target.closest('.scan-window-controls') || scanWindow?.classList.contains('maximized')) return;
+  scanDrag = { startX: event.clientX, startY: event.clientY, x: Number(scanWindow?.dataset.dragX || 0), y: Number(scanWindow?.dataset.dragY || 0) };
+  scanTitlebar.setPointerCapture?.(event.pointerId);
+});
+scanTitlebar?.addEventListener('pointermove', (event) => {
+  if (!scanDrag || !scanWindow) return;
+  const x = scanDrag.x + event.clientX - scanDrag.startX;
+  const y = scanDrag.y + event.clientY - scanDrag.startY;
+  scanWindow.dataset.dragX = String(x);
+  scanWindow.dataset.dragY = String(y);
+  scanWindow.style.transform = `translate(${x}px, ${y}px)`;
+});
+function stopScanDrag() { scanDrag = null; }
+scanTitlebar?.addEventListener('pointerup', stopScanDrag);
+scanTitlebar?.addEventListener('pointercancel', stopScanDrag);
+
 el('scan-folder').addEventListener('click', async () => {
   if (!window.showDirectoryPicker) return toast('Browser tidak mendukung pemindaian folder. Gunakan Chrome atau Edge desktop terbaru.', 'error');
   try {
@@ -580,7 +670,7 @@ el('scan-clear-selection')?.addEventListener('click', () => {
 });
 el('clear-scan')?.addEventListener('click', () => {
   resetScanSession();
-  el('scan-status').textContent = 'Hasil scan dibersihkan. Tidak ada data scan yang disimpan.';
+  el('scan-status').textContent = 'Riwayat scan dihapus dari sesi browser. Game baru yang belum ditambahkan tidak pernah disimpan ke web.';
 });
 
 el('scan-candidate-list')?.addEventListener('click', async (event) => {

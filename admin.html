@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="id">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin — YOSENOV Patch Monitor</title><meta name="robots" content="noindex,nofollow"><link rel="icon" href="/assets/logo.svg"><link rel="stylesheet" href="/assets/styles.css?v=20260808-v5"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin — YOSENOV Patch Monitor</title><meta name="robots" content="noindex,nofollow"><link rel="icon" href="/assets/logo.svg"><link rel="stylesheet" href="/assets/styles.css?v=20260808-v6"></head>
 <body>
 <header class="topbar"><div class="shell topbar-inner"><a class="brand" href="/"><img src="/assets/logo.svg" alt="YOSENOV"></a><nav class="nav-actions"><a class="button ghost" href="/" target="_blank">Lihat publik</a><a class="button ghost" href="/embed.html" target="_blank">View Mode</a><button class="icon-button" data-theme-toggle aria-label="Ganti tema">☾</button></nav></div></header>
 <main class="shell">
   <section id="login-view" class="login-wrap"><form id="login-form" class="login-card"><h1>Admin YOSENOV</h1><p>Kelola library, periksa patch terbaru, tandai terjemahan yang selesai, dan buat embed per game untuk Blogspot.</p><div class="form-grid"><div class="field"><label for="email">Email</label><input class="input" id="email" type="email" autocomplete="username" required></div><div class="field"><label for="password">Password</label><input class="input" id="password" type="password" autocomplete="current-password" required></div><button class="button primary" id="login-submit" type="submit">Masuk</button><div id="firebase-status" class="setup-status" role="status">Memeriksa Firebase…</div></div></form></section>
   <section id="admin-view" class="admin-layout hidden">
-    <aside class="sidebar"><div class="sidebar-title">Menu Admin</div><button class="button primary" data-scroll="#library">▦ Status library</button><button class="button" data-scroll="#add">＋ Tambah game</button><button class="button" data-scroll="#scanner">⌁ Sync laptop</button><button class="button danger" id="logout">Keluar</button></aside>
+    <aside class="sidebar"><div class="sidebar-title">Menu Admin</div><button class="button primary" data-scroll="#library">▦ Status library</button><button class="button" data-scroll="#add">＋ Tambah game</button><button class="button" id="sidebar-open-scan" type="button">⌁ Sync laptop</button><button class="button danger" id="logout">Keluar</button></aside>
     <div>
       <section class="admin-summary" aria-label="Ringkasan status library">
         <button class="admin-stat active" data-admin-filter="all"><span>Total game</span><strong id="a-total">0</strong><small>Semua game</small></button>
@@ -23,36 +23,55 @@
       </section>
 
       <section id="add" class="admin-section"><div class="section-heading"><div><h2>Tambah game manual</h2><p>Masukkan Steam App ID atau tautan SteamDB. Data game dan build publik akan diambil otomatis.</p></div></div><form id="add-form" class="grid-2"><div class="field"><label for="app-input">Steam App ID atau URL SteamDB</label><input class="input" id="app-input" placeholder="1796790 atau https://steamdb.info/app/1796790/" required></div><div class="field"><label for="local-build">Build lokal (opsional)</label><input class="input" id="local-build" placeholder="Contoh: 24527697"></div><div class="field"><label for="custom-name">Nama khusus (opsional)</label><input class="input" id="custom-name" placeholder="Kosongkan untuk mengambil dari Steam"></div><div class="field"><label for="add-notes">Catatan (opsional)</label><input class="input" id="add-notes" placeholder="Contoh: UI selesai, dialog Chapter 3 masih dikerjakan"></div><div class="field grid-span-2"><button class="button primary" type="submit">Ambil data & simpan</button></div></form></section>
-      <section id="scanner" class="admin-section">
-        <div class="section-heading"><div><h2>Sync game dari laptop</h2><p>Scan hanya membaca file <code>appmanifest_*.acf</code> dari folder <strong>steamapps</strong>. Game yang sudah ada di library akan memperbarui build lokal otomatis. Game baru hanya ditampilkan sebagai hasil scan dan <strong>tidak disimpan</strong> sampai Anda memilihnya.</p></div></div>
-        <div class="toolbar-group"><button id="scan-folder" class="button primary">Pilih Steam Folder</button><button id="clear-scan" class="button hidden" type="button">Bersihkan hasil scan</button></div>
-        <div id="scan-status" class="game-id" style="margin-top:12px"></div><div class="progress"><div id="scan-progress"></div></div>
-
-        <div id="scan-results" class="scan-results hidden">
-          <div class="scan-summary">
-            <div><span>Manifest terbaca</span><strong id="scan-total">0</strong></div>
-            <div class="scan-summary-success"><span>Library diperbarui</span><strong id="scan-existing">0</strong></div>
-            <div class="scan-summary-pending"><span>Belum masuk library</span><strong id="scan-new">0</strong></div>
-          </div>
-
-          <div id="scan-updated-wrap" class="scan-result-block hidden">
-            <div class="scan-result-heading"><div><h3>Sudah ada di library</h3><p>Build lokal game berikut diperbarui otomatis. Tidak ada game baru yang dibuat.</p></div><span id="scan-updated-count" class="badge success">0 diperbarui</span></div>
-            <div id="scan-updated-list" class="scan-updated-list"></div>
-          </div>
-
-          <div id="scan-new-wrap" class="scan-result-block hidden">
-            <div class="scan-result-heading"><div><h3>Game terdeteksi — belum masuk library</h3><p>Daftar ini hanya tersimpan sementara di browser. Klik judul untuk menambahkan satu game, atau pilih beberapa game lalu tambahkan sekaligus.</p></div><span class="badge neutral">Belum disimpan</span></div>
-            <div class="scan-candidate-toolbar"><input id="scan-search" class="input" type="search" placeholder="Cari hasil scan"><div class="toolbar-group"><button id="scan-select-all" class="button small" type="button">Pilih semua terlihat</button><button id="scan-clear-selection" class="button small" type="button">Kosongkan pilihan</button><button id="scan-add-selected" class="button small primary" type="button" disabled>Tambahkan yang dipilih (<span id="scan-selected-count">0</span>)</button></div></div>
-            <div id="scan-candidate-list" class="scan-candidate-list"></div>
-            <div id="scan-candidate-empty" class="empty hidden">Tidak ada game baru pada pencarian ini.</div>
-          </div>
-        </div>
+      <section id="scanner" class="admin-section scan-launcher-section">
+        <div class="section-heading"><div><h2>Sync game dari laptop</h2><p>Scan Steam dibuka di jendela terpisah agar halaman admin tetap ringkas. Game baru hanya ditampilkan sementara dan tidak masuk library sampai Anda memilihnya.</p></div><button id="open-scan-window" class="button primary" type="button">Buka Sync Laptop</button></div>
       </section>
     </div>
   </section>
 </main>
+<div id="scan-window-backdrop" class="scan-window-backdrop hidden" aria-hidden="true">
+  <section id="scan-window" class="scan-window" role="dialog" aria-modal="true" aria-labelledby="scan-window-title">
+    <header class="scan-window-titlebar">
+      <div class="scan-window-brand"><img src="/assets/logo.svg" alt=""><div><strong id="scan-window-title">Sync Laptop</strong><span>Steam Library Scanner</span></div></div>
+      <div class="scan-window-controls" aria-label="Kontrol jendela">
+        <button id="scan-window-minimize" type="button" class="scan-window-control" title="Minimize" aria-label="Minimize">−</button>
+        <button id="scan-window-maximize" type="button" class="scan-window-control" title="Maximize" aria-label="Maximize">□</button>
+        <button id="scan-window-close" type="button" class="scan-window-control close" title="Tutup" aria-label="Tutup">×</button>
+      </div>
+    </header>
+    <div id="scan-window-body" class="scan-window-body">
+      <div class="scan-window-intro">
+        <div><h2>Sync game dari laptop</h2><p>Pilih folder <strong>steamapps</strong>. Game yang sudah ada di library akan memperbarui build lokal otomatis. Game yang belum ada <strong>tidak disimpan ke web</strong> sebelum Anda menambahkannya secara manual.</p></div>
+        <div class="toolbar-group scan-window-primary-actions"><button id="scan-folder" class="button primary" type="button">Pilih Steam Folder</button><button id="clear-scan" class="button danger hidden" type="button">Hapus riwayat scan</button></div>
+      </div>
+      <div id="scan-status" class="game-id scan-window-status">Belum ada scan pada sesi ini.</div>
+      <div class="progress"><div id="scan-progress"></div></div>
+
+      <div id="scan-results" class="scan-results hidden">
+        <div class="scan-summary">
+          <div class="scan-summary-pending"><span>Belum masuk library</span><strong id="scan-new">0</strong></div>
+          <div><span>Manifest terbaca</span><strong id="scan-total">0</strong></div>
+          <div class="scan-summary-success"><span>Library auto-sync</span><strong id="scan-existing">0</strong></div>
+        </div>
+
+        <div id="scan-new-wrap" class="scan-result-block scan-priority-block hidden">
+          <div class="scan-result-heading"><div><div class="eyebrow">Tampilkan pertama</div><h3>Belum masuk library</h3><p>Ini hanya hasil scan sementara di browser. Klik judul untuk memasukkan satu game, atau pilih beberapa game. Menutup popup tidak memasukkan game ini ke website.</p></div><span class="badge warning">Belum disimpan</span></div>
+          <div class="scan-candidate-toolbar"><input id="scan-search" class="input" type="search" placeholder="Cari game yang belum masuk library"><div class="toolbar-group"><button id="scan-select-all" class="button small" type="button">Pilih semua terlihat</button><button id="scan-clear-selection" class="button small" type="button">Kosongkan pilihan</button><button id="scan-add-selected" class="button small primary" type="button" disabled>Tambahkan yang dipilih (<span id="scan-selected-count">0</span>)</button></div></div>
+          <div id="scan-candidate-list" class="scan-candidate-list"></div>
+          <div id="scan-candidate-empty" class="empty hidden">Tidak ada game baru pada pencarian ini.</div>
+        </div>
+
+        <div id="scan-updated-wrap" class="scan-result-block hidden">
+          <div class="scan-result-heading"><div><h3>Sudah ada di library — auto-sync</h3><p>Bagian ini hanya menunjukkan game yang sudah lebih dulu ada di YOSENOV. Build lokalnya diperbarui otomatis dari manifest Steam.</p></div><span id="scan-updated-count" class="badge success">0 diperbarui</span></div>
+          <div id="scan-updated-list" class="scan-updated-list"></div>
+        </div>
+      </div>
+    </div>
+    <div id="scan-window-minimized" class="scan-window-minimized hidden"><span>Sync Laptop diminimalkan</span><button id="scan-window-restore" class="button small" type="button">Buka kembali</button></div>
+  </section>
+</div>
 <div id="edit-modal" class="modal-backdrop hidden"><form id="edit-form" class="modal"><h2>Edit game</h2><input type="hidden" id="edit-id"><div class="form-grid"><div class="field"><label>Nama</label><input class="input" id="edit-name" required></div><div class="field"><label>Build lokal</label><input class="input" id="edit-local"></div><div class="field"><label>Build terjemahan</label><input class="input" id="edit-translation"></div><div class="field"><label>Catatan (opsional)</label><textarea class="textarea" id="edit-notes" rows="4" placeholder="Catatan hanya muncul jika diisi."></textarea></div><div class="toolbar-group"><button class="button primary" type="submit">Simpan</button><button class="button" type="button" id="close-modal">Batal</button></div></div></form></div>
 <div id="embed-modal" class="modal-backdrop hidden"><div class="modal"><h2>Embed satu game ke Blogspot</h2><p class="modal-help">Salin kode iframe berikut lalu tempel tepat di bawah bagian <strong>📅 Update Terakhir</strong> pada mode HTML postingan Blogspot.</p><div class="field"><label>Game</label><input class="input" id="embed-game-name" readonly></div><div class="field"><label>Kode iframe</label><textarea class="textarea mono" id="embed-code" rows="6" readonly></textarea></div><div class="field"><label>Preview URL</label><input class="input mono" id="embed-url" readonly></div><div class="toolbar-group"><button class="button primary" type="button" id="copy-embed">Salin kode</button><a class="button" id="preview-embed" href="#" target="_blank" rel="noopener">Preview</a><button class="button" type="button" id="close-embed">Tutup</button></div></div></div>
-<script src="/assets/theme.js?v=20260808-v5" defer></script>
-<script type="module" src="/assets/admin.js?v=20260808-v5"></script>
+<script src="/assets/theme.js?v=20260808-v6" defer></script>
+<script type="module" src="/assets/admin.js?v=20260808-v6"></script>
 </body></html>
