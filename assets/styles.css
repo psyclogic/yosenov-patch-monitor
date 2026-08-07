@@ -431,3 +431,94 @@ body.embed.compact-embed .empty { padding:20px 14px; background:var(--surface-so
   .bulk-bar-actions .button { flex:1 1 calc(50% - 8px); }
   body.embed.compact-embed .game-card.no-cover .game-body { padding:14px; }
 }
+
+/* ===== YOSENOV v4: robust bulk actions + text-only Blogspot card ===== */
+details.bulk-actions { position: relative; }
+details.bulk-actions > summary { list-style: none; cursor: pointer; user-select: none; }
+details.bulk-actions > summary::-webkit-details-marker { display: none; }
+details.bulk-actions[open] > summary {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  background: var(--surface-2);
+}
+details.bulk-actions .bulk-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 60;
+  width: 240px;
+  display: grid;
+  gap: 5px;
+  padding: 8px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, .18);
+}
+details.bulk-actions:not([open]) .bulk-menu { display: none; }
+.bulk-menu-item {
+  display: block;
+  appearance: none;
+  width: 100%;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  padding: 10px 11px;
+  cursor: pointer;
+}
+.bulk-menu-item:hover { background: var(--surface-2); }
+
+/* Text-only embed used inside individual Blogspot posts. */
+html:has(body.blog-game-embed), body.blog-game-embed {
+  background: #ffffff !important;
+  color: #172033 !important;
+  color-scheme: light !important;
+  margin: 0;
+  padding: 0;
+}
+body.blog-game-embed {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.blog-game-embed-root { width: 100%; margin: 0; padding: 0; }
+.blog-game-card {
+  box-sizing: border-box;
+  width: 100%;
+  background: #ffffff;
+  color: #172033;
+  border: 1px solid #dce3ed;
+  border-radius: 14px;
+  padding: 15px 16px;
+}
+.blog-game-heading h2 { margin: 0 0 3px; font-size: 18px; line-height: 1.3; color: #111827; }
+.blog-game-heading p { margin: 0; font-size: 11px; color: #667085; }
+.blog-status-row { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0; }
+.blog-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 750;
+  border: 1px solid transparent;
+}
+.blog-status.success { color: #087a55; background: #e8f7f0; border-color: #c7ecdd; }
+.blog-status.danger { color: #b42318; background: #fff0ee; border-color: #ffd5d0; }
+.blog-status.warning { color: #9a6700; background: #fff7da; border-color: #f7e2a1; }
+.blog-status.neutral { color: #475467; background: #f2f4f7; border-color: #e4e7ec; }
+.blog-build-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.blog-build-grid > div { background: #f3f6fa; border-radius: 9px; padding: 8px 9px; min-width: 0; }
+.blog-build-grid span { display: block; margin-bottom: 2px; font-size: 10px; color: #667085; }
+.blog-build-grid strong { display: block; font-size: 12px; color: #111827; overflow-wrap: anywhere; }
+.blog-note { margin-top: 10px; border-left: 3px solid #5267f7; background: #f5f7ff; padding: 8px 10px; border-radius: 0 9px 9px 0; }
+.blog-note strong { display: block; font-size: 10px; color: #4355db; text-transform: uppercase; letter-spacing: .05em; }
+.blog-note p { margin: 3px 0 0; font-size: 12px; line-height: 1.45; color: #344054; white-space: pre-wrap; }
+.blog-embed-message { box-sizing: border-box; width: 100%; padding: 16px; border: 1px solid #dce3ed; border-radius: 12px; color: #667085; background: #ffffff; font-size: 13px; }
+@media (max-width: 560px) {
+  .blog-game-card { padding: 13px; border-radius: 12px; }
+  .blog-build-grid { grid-template-columns: 1fr; }
+  .blog-game-heading h2 { font-size: 16px; }
+}

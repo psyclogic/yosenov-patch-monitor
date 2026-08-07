@@ -33,7 +33,6 @@ async function boot() {
     setFirebaseStatus('Firebase tersambung. Silakan login.', 'success');
     setLoginEnabled(true);
     bindFirebaseAuth();
-    bindBulkControls();
   } catch (error) {
     console.error('Firebase init:', error);
     setFirebaseStatus(error.message || 'Firebase gagal dimuat.', 'error');
@@ -153,14 +152,12 @@ function renderAdmin() {
 }
 
 function renderBulkUi(filtered) {
-  const menu = el('bulk-menu');
   const bar = el('bulk-bar');
   const count = el('selected-count');
   const filteredCount = el('filtered-count');
   const toggleText = el('bulk-toggle-text');
   const hasSelection = selectedIds.size > 0;
 
-  if (menu) menu.classList.remove('open');
   if (bar) bar.classList.toggle('hidden', !selectionMode);
   if (count) count.textContent = String(selectedIds.size);
   if (filteredCount) filteredCount.textContent = String(filtered.length);
@@ -228,55 +225,71 @@ function toggleSelection(id) {
   renderAdmin();
 }
 
+function closeBulkMenu() {
+  const details = el('bulk-actions');
+  if (details?.open) details.open = false;
+}
+
 function bindBulkControls() {
-  el('bulk-actions-button')?.addEventListener('click', (event) => {
-    event.stopPropagation();
-    el('bulk-menu')?.classList.toggle('open');
-  });
-  document.addEventListener('click', (event) => {
-    if (!event.target.closest('.bulk-actions')) el('bulk-menu')?.classList.remove('open');
-  });
   el('bulk-toggle-mode')?.addEventListener('click', () => {
     setSelectionMode(!selectionMode);
+    closeBulkMenu();
   });
+
   el('bulk-select-filtered')?.addEventListener('click', () => {
     const { filtered } = getFilteredStatuses();
     filtered.forEach(({ game }) => selectedIds.add(game.id));
     selectionMode = true;
+    closeBulkMenu();
     renderAdmin();
   });
+
   el('bulk-clear')?.addEventListener('click', () => {
     selectedIds.clear();
+    closeBulkMenu();
     renderAdmin();
   });
+
   el('bulk-clear-inline')?.addEventListener('click', () => {
     selectedIds.clear();
     renderAdmin();
   });
+
   el('bulk-done')?.addEventListener('click', () => {
     setSelectionMode(false);
   });
-  el('bulk-delete')?.addEventListener('click', async () => {
-    if (!firebase || !selectedIds.size) return;
-    const names = games.filter((game) => selectedIds.has(game.id)).map((game) => game.name || game.appId);
-    const preview = names.slice(0, 6).join(', ');
-    const extra = names.length > 6 ? ` dan ${names.length - 6} game lainnya` : '';
-    if (!confirm(`Hapus ${names.length} game terpilih?\n\n${preview}${extra}`)) return;
-    const button = el('bulk-delete');
-    button.disabled = true;
-    try {
-      const { doc, deleteDoc } = firebase.firestoreModule;
-      for (const id of selectedIds) {
-        await deleteDoc(doc(firebase.db, 'games', id));
-      }
-      toast(`${names.length} game berhasil dihapus.`);
-      setSelectionMode(false);
-    } catch (error) {
-      toast(friendlyFirebaseError(error), 'error');
-    } finally {
-      button.disabled = false;
+
+  el('bulk-delete')?.addEventListener('click', deleteSelectedGames);
+}
+
+async function deleteSelectedGames() {
+  if (!firebase) return toast('Firebase belum tersambung.', 'error');
+  if (!selectedIds.size) return toast('Pilih minimal satu game terlebih dahulu.', 'error');
+
+  const selectedGames = games.filter((game) => selectedIds.has(game.id));
+  const preview = selectedGames.slice(0, 5).map((game) => `• ${game.name || game.appId}`).join('\n');
+  const more = selectedGames.length > 5 ? `\n• dan ${selectedGames.length - 5} game lainnya` : '';
+  const ok = confirm(`Hapus ${selectedGames.length} game terpilih dari library?\n\n${preview}${more}\n\nTindakan ini tidak dapat dibatalkan.`);
+  if (!ok) return;
+
+  const button = el('bulk-delete');
+  button.disabled = true;
+  button.textContent = 'Menghapus…';
+  try {
+    const { doc, deleteDoc } = firebase.firestoreModule;
+    for (const game of selectedGames) {
+      await deleteDoc(doc(firebase.db, 'games', game.id));
     }
-  });
+    selectedIds.clear();
+    selectionMode = false;
+    toast(`${selectedGames.length} game berhasil dihapus.`);
+    renderAdmin();
+  } catch (error) {
+    toast(friendlyFirebaseError(error), 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Hapus yang dipilih';
+  }
 }
 
 el('admin-search').addEventListener('input', renderAdmin);
@@ -464,8 +477,8 @@ function openEdit(game) {
 }
 
 function openEmbed(game) {
-  const url = `${window.location.origin}/embed.html?game=${encodeURIComponent(game.appId)}&compact=1`;
-  const code = `<iframe src="${url}" title="Status update ${escapeAttribute(game.name || `Steam App ${game.appId}`)}" width="100%" height="360" style="border:0;display:block;width:100%;background:#ffffff;" loading="lazy"></iframe>`;
+  const url = `${window.location.origin}/game-embed.html?game=${encodeURIComponent(game.appId)}`;
+  const code = `<iframe src="${url}" title="Status update ${escapeAttribute(game.name || `Steam App ${game.appId}`)}" width="100%" height="300" style="border:0;display:block;width:100%;background:#ffffff;" loading="lazy"></iframe>`;
   el('embed-game-name').value = game.name || `Steam App ${game.appId}`;
   el('embed-url').value = url;
   el('embed-code').value = code;
@@ -508,4 +521,5 @@ el('copy-embed').addEventListener('click', async () => {
   }
 });
 
+bindBulkControls();
 boot();
