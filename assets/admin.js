@@ -753,13 +753,25 @@ function openEdit(game) {
   el('edit-modal').classList.remove('hidden');
 }
 
+function buildEmbedCode(game, withBorder = true) {
+  const url = `${window.location.origin}/game-embed.html?game=${encodeURIComponent(game.appId)}&border=${withBorder ? '1' : '0'}`;
+  const title = escapeAttribute(game.name || `Steam App ${game.appId}`);
+  const frameStyle = `display:block;width:100%;height:clamp(330px,calc(440px - 8vw),390px);border:0;overflow:hidden;background:#ffffff;${withBorder ? 'border-radius:14px;' : ''}`;
+  return {
+    url,
+    code: `<iframe src="${url}" title="Status update ${title}" width="100%" height="390" scrolling="no" style="${frameStyle}" loading="lazy"></iframe>`
+  };
+}
+
 function openEmbed(game) {
-  const url = `${window.location.origin}/game-embed.html?game=${encodeURIComponent(game.appId)}`;
-  const code = `<iframe src="${url}" title="Status update ${escapeAttribute(game.name || `Steam App ${game.appId}`)}" width="100%" height="300" style="border:0;display:block;width:100%;background:#ffffff;" loading="lazy"></iframe>`;
+  const bordered = buildEmbedCode(game, true);
+  const clean = buildEmbedCode(game, false);
   el('embed-game-name').value = game.name || `Steam App ${game.appId}`;
-  el('embed-url').value = url;
-  el('embed-code').value = code;
-  el('preview-embed').href = url;
+  el('embed-url').value = `${window.location.origin}/game-embed.html?game=${encodeURIComponent(game.appId)}`;
+  el('embed-code-border').value = bordered.code;
+  el('embed-code-clean').value = clean.code;
+  el('preview-embed-border').href = bordered.url;
+  el('preview-embed-clean').href = clean.url;
   el('embed-modal').classList.remove('hidden');
 }
 
@@ -786,17 +798,22 @@ el('edit-form').addEventListener('submit', async event => {
 
 el('close-embed').addEventListener('click', () => el('embed-modal').classList.add('hidden'));
 el('embed-modal').addEventListener('click', e => { if (e.target === el('embed-modal')) el('embed-modal').classList.add('hidden'); });
-el('copy-embed').addEventListener('click', async () => {
-  const code = el('embed-code').value;
+async function copyEmbedFrom(fieldId, message) {
+  const field = el(fieldId);
+  const code = field?.value || '';
+  if (!code) return;
   try {
     await navigator.clipboard.writeText(code);
-    toast('Kode embed berhasil disalin.');
+    toast(message);
   } catch (_) {
-    el('embed-code').select();
+    field.select();
     document.execCommand('copy');
-    toast('Kode embed berhasil disalin.');
+    toast(message);
   }
-});
+}
+
+el('copy-embed-border').addEventListener('click', () => copyEmbedFrom('embed-code-border', 'Embed dengan border berhasil disalin.'));
+el('copy-embed-clean').addEventListener('click', () => copyEmbedFrom('embed-code-clean', 'Embed tanpa border berhasil disalin.'));
 
 bindBulkControls();
 boot();

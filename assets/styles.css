@@ -717,3 +717,130 @@ body.scan-dialog-open { overflow: hidden; }
   .scan-summary { grid-template-columns: 1fr; }
   .scan-candidate-list { max-height: 48vh; }
 }
+
+/* ===== V7: fixed responsive single-game Blogspot embed ===== */
+html:has(body.blog-game-embed),
+body.blog-game-embed {
+  overflow: hidden !important;
+  width: 100%;
+  max-width: 100%;
+}
+.blog-game-embed-root {
+  box-sizing: border-box;
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+.blog-game-card {
+  overflow: hidden;
+  min-width: 0;
+}
+.blog-game-heading h2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.blog-game-heading p {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.blog-status-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.blog-status {
+  box-sizing: border-box;
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.25;
+}
+.blog-build-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+.blog-note p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+html.blog-embed-borderless .blog-game-card,
+body.blog-embed-borderless .blog-game-card {
+  border: 0;
+  border-radius: 0;
+  padding-left: 2px;
+  padding-right: 2px;
+}
+@media (max-width: 560px) {
+  .blog-game-card {
+    padding: 11px 12px;
+    border-radius: 11px;
+  }
+  .blog-game-heading h2 {
+    font-size: 15px;
+    line-height: 1.25;
+  }
+  .blog-game-heading p {
+    font-size: 9.5px;
+  }
+  .blog-status-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    margin: 9px 0;
+  }
+  .blog-status {
+    min-height: 34px;
+    padding: 5px 6px;
+    border-radius: 9px;
+    font-size: 9.5px;
+  }
+  .blog-build-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 5px;
+  }
+  .blog-build-grid > div {
+    padding: 7px 6px;
+    border-radius: 8px;
+  }
+  .blog-build-grid span {
+    font-size: 8.5px;
+    line-height: 1.2;
+  }
+  .blog-build-grid strong {
+    font-size: 10px;
+    line-height: 1.25;
+  }
+  .blog-note {
+    margin-top: 8px;
+    padding: 7px 8px;
+  }
+  .blog-note strong { font-size: 9px; }
+  .blog-note p {
+    margin-top: 2px;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+}
+@media (max-width: 340px) {
+  .blog-game-card { padding: 9px; }
+  .blog-game-heading h2 { font-size: 14px; }
+  .blog-status { font-size: 9px; padding-inline: 4px; }
+  .blog-build-grid span { font-size: 8px; }
+  .blog-build-grid strong { font-size: 9.5px; }
+}
+
+/* V7 embed copy modal */
+.embed-choice-modal { width: min(780px, 100%); }
+.embed-option-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0; }
+.embed-option-card { border: 1px solid var(--border); border-radius: 14px; padding: 13px; background: var(--surface-2); min-width: 0; }
+.embed-option-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
+.embed-option-head strong { display: block; font-size: 14px; }
+.embed-option-head span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.embed-option-card .textarea { min-height: 126px; }
+.embed-option-card > .button { margin-top: 9px; width: 100%; }
+@media (max-width: 700px) {
+  .embed-option-grid { grid-template-columns: 1fr; }
+}

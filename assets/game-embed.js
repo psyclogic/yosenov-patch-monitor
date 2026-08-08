@@ -3,7 +3,11 @@ import { createFirebaseClient } from './firebase-client.js';
 
 const params = new URLSearchParams(window.location.search);
 const requestedGame = (params.get('game') || params.get('appid') || '').trim();
+const borderMode = params.get('border') !== '0';
 const root = document.querySelector('#game-embed-root');
+
+document.documentElement.classList.toggle('blog-embed-borderless', !borderMode);
+document.body.classList.toggle('blog-embed-borderless', !borderMode);
 
 function statusText(game, status) {
   const gameStatus = status.remoteUnknown
@@ -59,12 +63,9 @@ async function boot() {
   try {
     const { db, firestoreModule } = await createFirebaseClient({ firestore: true });
     const { doc, getDoc, collection, getDocs } = firestoreModule;
-
-    // Primary path: document ID is normally the Steam App ID.
     const direct = await getDoc(doc(db, 'games', requestedGame));
     if (direct.exists()) return renderGame({ id: direct.id, ...direct.data() });
 
-    // Fallback for older/non-standard document IDs.
     const snapshot = await getDocs(collection(db, 'games'));
     const found = snapshot.docs
       .map((d) => ({ id: d.id, ...d.data() }))
