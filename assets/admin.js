@@ -754,12 +754,14 @@ function openEdit(game) {
 }
 
 function buildEmbedCode(game, withBorder = true) {
-  const url = `${window.location.origin}/game-embed.html?game=${encodeURIComponent(game.appId)}&border=${withBorder ? '1' : '0'}`;
+  const frameId = `yosenov-embed-${game.appId}-${withBorder ? 'border' : 'clean'}`;
+  const url = `${window.location.origin}/game-embed.html?game=${encodeURIComponent(game.appId)}&border=${withBorder ? '1' : '0'}&frame=${encodeURIComponent(frameId)}`;
   const title = escapeAttribute(game.name || `Steam App ${game.appId}`);
-  const frameStyle = `display:block;width:100%;height:clamp(330px,calc(440px - 8vw),390px);border:0;overflow:hidden;background:#ffffff;${withBorder ? 'border-radius:14px;' : ''}`;
+  const frameStyle = `display:block;width:100%;height:260px;min-height:220px;border:0;overflow:hidden;background:#ffffff;${withBorder ? 'border-radius:14px;' : ''}`;
+  const resizeScript = `<script>(function(){var id=${JSON.stringify(frameId)};if(window.__yosenovEmbedResizeBound)return;window.__yosenovEmbedResizeBound=true;window.addEventListener('message',function(e){var d=e.data||{};if(d.type!=='yosenov-embed-resize'||!d.frameId)return;var iframe=document.getElementById(d.frameId);if(!iframe)return;var h=Math.max(160,Math.min(520,parseInt(d.height,10)||0));if(h)iframe.style.height=h+'px';});})();<\/script>`;
   return {
     url,
-    code: `<iframe src="${url}" title="Status update ${title}" width="100%" height="390" scrolling="no" style="${frameStyle}" loading="lazy"></iframe>`
+    code: `<iframe id="${frameId}" src="${url}" title="Status update ${title}" width="100%" height="260" scrolling="no" style="${frameStyle}" loading="lazy"></iframe>${resizeScript}`
   };
 }
 

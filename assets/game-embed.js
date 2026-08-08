@@ -6,6 +6,22 @@ const requestedGame = (params.get('game') || params.get('appid') || '').trim();
 const borderMode = params.get('border') !== '0';
 const root = document.querySelector('#game-embed-root');
 
+const frameId = (params.get('frame') || '').trim();
+
+function notifyParentHeight() {
+  const element = document.documentElement;
+  const body = document.body;
+  const height = Math.ceil(Math.max(
+    body?.scrollHeight || 0,
+    body?.offsetHeight || 0,
+    element?.scrollHeight || 0,
+    element?.offsetHeight || 0
+  ));
+  if (window.parent && window.parent !== window && frameId) {
+    window.parent.postMessage({ type: 'yosenov-embed-resize', frameId, height }, '*');
+  }
+}
+
 document.documentElement.classList.toggle('blog-embed-borderless', !borderMode);
 document.body.classList.toggle('blog-embed-borderless', !borderMode);
 
@@ -52,11 +68,17 @@ function renderGame(game) {
       </div>
       ${notes ? `<div class="blog-note"><strong>Catatan</strong><p>${escapeHtml(notes)}</p></div>` : ''}
     </article>`;
+  requestAnimationFrame(notifyParentHeight);
+  setTimeout(notifyParentHeight, 80);
+  setTimeout(notifyParentHeight, 240);
 }
+
 
 function renderError(message) {
   root.innerHTML = `<div class="blog-embed-message">${escapeHtml(message)}</div>`;
+  requestAnimationFrame(notifyParentHeight);
 }
+
 
 async function boot() {
   if (!requestedGame) return renderError('Game belum dipilih.');
@@ -79,3 +101,7 @@ async function boot() {
 }
 
 boot();
+
+window.addEventListener('load', notifyParentHeight);
+window.addEventListener('resize', notifyParentHeight);
+if ('ResizeObserver' in window) { new ResizeObserver(() => notifyParentHeight()).observe(document.body); }
