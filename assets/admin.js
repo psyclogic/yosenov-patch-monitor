@@ -10,6 +10,9 @@ let scanCandidates = [];
 let scanUpdatedGames = [];
 let scanManifestCount = 0;
 const scanSelectedIds = new Set();
+let manualLookupTimer = null;
+let manualLookupToken = 0;
+let manualLookupCache = null;
 
 const el = (id) => document.getElementById(id);
 const loginView = el('login-view');
@@ -306,33 +309,135 @@ document.querySelectorAll('[data-admin-filter]').forEach((button) => {
   });
 });
 
+function findLocalBuildForApp(appId) {
+  const id = String(appId || '');
+  const scanned = scanCandidates.find(game => String(game.appId) === id);
+  if (scanned?.localBuildId) return { build: String(scanned.localBuildId), source: 'Hasil Sync Laptop pada sesi ini' };
+
+  const existing = games.find(game => String(game.appId) === id);
+  if (existing?.localBuildId) return { build: String(existing.localBuildId), source: 'Build lokal dari library YOSENOV' };
+
+  const updated = scanUpdatedGames.find(game => String(game.appId) === id);
+  if (updated?.localBuildId) return { build: String(updated.localBuildId), source: 'Hasil Sync Laptop pada sesi ini' };
+
+  return { build: '', source: 'Belum ditemukan. Gunakan Sync Laptop untuk membaca build lokal.' };
+}
+
+function setManualLookupUi({ loading = false, message = '', type = '', info = null } = {}) {
+  el('manual-lookup-spinner')?.classList.toggle('hidden', !loading);
+  const status = el('manual-lookup-status');
+  if (status) {
+    status.textContent = message || 'Masukkan App ID atau URL SteamDB untuk mendeteksi game otomatis.';
+    status.className = `lookup-status ${type}`.trim();
+  }
+  const preview = el('manual-preview');
+  preview?.classList.toggle('hidden', !info);
+  if (info) {
+    el('manual-preview-appid').textContent = String(info.appId || '—');
+    el('manual-preview-public').textContent = String(info.remoteBuildId || 'Belum tersedia');
+    el('manual-preview-patch').textContent = info.latestPatchAt ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(info.latestPatchAt)) : 'Belum diketahui';
+  }
+}
+
+function applyLocalBuildSuggestion(appId) {
+  const local = findLocalBuildForApp(appId);
+  if (local.build) el('local-build').value = local.build;
+  else if (!el('local-build').dataset.manualEdited) el('local-build').value = '';
+  const hint = el('local-build-source');
+  if (hint) {
+    hint.textContent = local.source;
+    hint.className = `field-hint ${local.build ? 'success' : ''}`.trim();
+  }
+}
+
+async function lookupManualGame() {
+  const raw = el('app-input').value;
+  const appId = extractAppId(raw);
+  const token = ++manualLookupToken;
+
+  if (!raw.trim()) {
+    manualLookupCache = null;
+    el('custom-name').value = '';
+    if (!el('local-build').dataset.manualEdited) el('local-build').value = '';
+    setManualLookupUi();
+    return;
+  }
+  if (!appId) {
+    manualLookupCache = null;
+    setManualLookupUi({ message: 'App ID atau URL SteamDB belum valid.', type: 'error' });
+    return;
+  }
+
+  setManualLookupUi({ loading: true, message: `Mendeteksi Steam App ${appId}…` });
+  applyLocalBuildSuggestion(appId);
+  try {
+    const info = await fetchSteamInfo(appId);
+    if (token !== manualLookupToken) return;
+    manualLookupCache = { ...info, appId: String(appId) };
+    el('custom-name').value = info.name || `Steam App ${appId}`;
+    applyLocalBuildSuggestion(appId);
+    setManualLookupUi({
+      message: `${info.name || `Steam App ${appId}`} berhasil dikenali. Anda bisa langsung menyimpan ke library.`,
+      type: 'success',
+      info: manualLookupCache
+    });
+  } catch (error) {
+    if (token !== manualLookupToken) return;
+    manualLookupCache = null;
+    setManualLookupUi({ message: error.message || 'Data Steam tidak dapat diambil.', type: 'error' });
+  }
+}
+
+el('app-input').addEventListener('input', () => {
+  clearTimeout(manualLookupTimer);
+  manualLookupTimer = setTimeout(lookupManualGame, 500);
+});
+el('app-input').addEventListener('change', () => {
+  clearTimeout(manualLookupTimer);
+  lookupManualGame();
+});
+el('local-build').addEventListener('input', () => {
+  el('local-build').dataset.manualEdited = el('local-build').value.trim() ? '1' : '';
+  if (!el('local-build').value.trim()) applyLocalBuildSuggestion(extractAppId(el('app-input').value));
+});
+
 el('add-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const appId = extractAppId(el('app-input').value);
   if (!appId) return toast('App ID tidak valid.', 'error');
-  const button = event.submitter;
+  const button = event.submitter || el('manual-save-button');
   button.disabled = true;
-  button.textContent = 'Mengambil data…';
+  button.textContent = 'Menyimpan…';
   try {
-    const info = await fetchSteamInfo(appId);
+    let info = manualLookupCache && String(manualLookupCache.appId) === String(appId)
+      ? manualLookupCache
+      : await fetchSteamInfo(appId);
+    const local = findLocalBuildForApp(appId);
     const newGame = {
       ...info,
       appId,
       name: el('custom-name').value.trim() || info.name || `Steam App ${appId}`,
-      localBuildId: el('local-build').value.trim() || '',
+      localBuildId: el('local-build').value.trim() || local.build || '',
       source: 'manual'
     };
     const newNotes = el('add-notes').value.trim();
     if (newNotes) newGame.notes = newNotes;
     await saveGame(newGame);
     event.target.reset();
+    delete el('local-build').dataset.manualEdited;
+    manualLookupCache = null;
+    setManualLookupUi();
+    if (el('local-build-source')) {
+      el('local-build-source').textContent = 'Belum ada data lokal.';
+      el('local-build-source').className = 'field-hint';
+    }
     toast('Game berhasil ditambahkan.');
     el('library').scrollIntoView({ behavior: 'smooth' });
   } catch (error) {
     toast(error.message, 'error');
   } finally {
     button.disabled = false;
-    button.textContent = 'Ambil data & simpan';
+    button.textContent = 'Simpan ke library';
   }
 });
 

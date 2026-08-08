@@ -1034,3 +1034,58 @@ body.blog-embed-borderless .blog-game-card-full {
   .blog-card-actions a { font-size: 8.2px; padding-inline: 5px; }
   .blog-status-box > small { -webkit-line-clamp: 1; }
 }
+
+
+/* ===== V11: automatic Steam lookup in manual add ===== */
+.auto-lookup-input { position: relative; }
+.auto-lookup-input .input { padding-right: 42px; }
+.lookup-spinner {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: yosenov-spin .75s linear infinite;
+}
+@keyframes yosenov-spin { to { transform: rotate(360deg); } }
+.lookup-status,
+.field-hint {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.lookup-status.success,
+.field-hint.success { color: var(--success); }
+.lookup-status.error { color: var(--danger); }
+.manual-preview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-2);
+}
+.manual-preview > div { min-width: 0; }
+.manual-preview span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-bottom: 3px;
+}
+.manual-preview strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 620px) {
+  .manual-preview { grid-template-columns: 1fr; }
+}
