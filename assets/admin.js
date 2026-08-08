@@ -757,10 +757,10 @@ function buildEmbedCode(game, withBorder = true) {
   const url = `${window.location.origin}/game-embed.html?game=${encodeURIComponent(game.appId)}&border=${withBorder ? '1' : '0'}`;
   const title = escapeAttribute(game.name || `Steam App ${game.appId}`);
   const hasNotes = Boolean(String(game.notes || '').trim());
-  const fallbackHeight = hasNotes ? 286 : 258;
+  const fallbackHeight = hasNotes ? 252 : 230;
   const responsiveHeight = hasNotes
-    ? 'clamp(270px,calc(310px - 5vw),292px)'
-    : 'clamp(238px,calc(286px - 5vw),264px)';
+    ? 'clamp(244px,calc(274px - 2vw),264px)'
+    : 'clamp(220px,calc(250px - 2vw),242px)';
   const iframeStyle = `display:block;width:100%;height:${responsiveHeight};border:0;margin:0;padding:0;overflow:hidden;background:#ffffff;vertical-align:top;${withBorder ? 'border-radius:14px;' : ''}`;
   const iframe = `<iframe src="${url}" title="Status update ${title}" width="100%" height="${fallbackHeight}" scrolling="no" style="${iframeStyle}" loading="lazy"></iframe>`;
   return {
