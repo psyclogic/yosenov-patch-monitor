@@ -1,4 +1,4 @@
-import { escapeHtml, formatDate, getStatus } from './common.js';
+import { escapeHtml, formatDate, getStatus } from './common.js?v=20260809-v13';
 import { createFirebaseClient } from './firebase-client.js';
 
 const params = new URLSearchParams(window.location.search);
@@ -27,7 +27,7 @@ function translationStatusData(game, status) {
     return { cls: 'neutral', title: 'Belum dapat dibandingkan', detail: 'Menunggu informasi build publik.' };
   }
   if (!game.translationBuildId) {
-    return { cls: 'danger', title: 'Belum ditandai', detail: 'Terjemahan patch terbaru belum dikonfirmasi.' };
+    return { cls: 'danger', title: 'Belum sesuai', detail: 'Terjemahan belum sesuai dengan patch publik terbaru.' };
   }
   if (status.translationNeedsUpdate) {
     return { cls: 'danger', title: 'Perlu update', detail: 'Terjemahan masih mengikuti build sebelumnya.' };
@@ -65,7 +65,7 @@ function renderGame(game) {
       <div class="blog-build-grid">
         <div><span>Build lokal</span><strong>${escapeHtml(game.localBuildId || 'Belum dipindai')}</strong></div>
         <div><span>Build publik</span><strong>${escapeHtml(game.remoteBuildId || 'Belum tersedia')}</strong></div>
-        <div><span>Build terjemahan</span><strong>${escapeHtml(game.translationBuildId || 'Belum ditandai')}</strong></div>
+        <div><span>Build terjemahan</span><strong>${escapeHtml(game.translationBuildId || 'Belum sesuai')}</strong></div>
       </div>
 
       ${notes ? `<div class="blog-note blog-note-compact"><strong>Catatan</strong><p>${escapeHtml(notes)}</p></div>` : ''}

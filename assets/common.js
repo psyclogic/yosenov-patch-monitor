@@ -18,6 +18,7 @@ export function getStatus(game) {
     translationNeedsUpdate: Boolean(remote && translation !== remote),
     localUnknown: !local,
     remoteUnknown: !remote,
+    translationPending: Boolean(remote && translation !== remote),
     ready: Boolean(remote && local === remote && translation === remote)
   };
 }

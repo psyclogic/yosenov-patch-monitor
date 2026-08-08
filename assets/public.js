@@ -1,4 +1,4 @@
-import { escapeHtml, formatDate, getStatus } from './common.js';
+import { escapeHtml, formatDate, getStatus } from './common.js?v=20260809-v13';
 import { createFirebaseClient } from './firebase-client.js';
 
 let games = [];
@@ -12,6 +12,7 @@ const nodes = {
   empty: document.querySelector('#empty'),
   search: document.querySelector('#search'),
   filter: document.querySelector('#filter'),
+  sort: document.querySelector('#sort'),
   total: document.querySelector('#m-total'),
   game: document.querySelector('#m-game'),
   translation: document.querySelector('#m-translation'),
@@ -49,9 +50,34 @@ function setMetricActive(filter) {
   });
 }
 
+function toMillis(value) {
+  if (!value) return 0;
+  if (typeof value?.toDate === 'function') return value.toDate().getTime();
+  if (typeof value?.seconds === 'number') return value.seconds * 1000;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function translationAddedAt(game) {
+  if (!String(game.translationBuildId || '').trim()) return 0;
+  return toMillis(game.translationUpdatedAt || game.updatedAt || game.createdAt);
+}
+
+function sortGameStatuses(items, mode = 'name-asc') {
+  const byName = (a, b) => String(a.game.name || a.game.appId || '').localeCompare(String(b.game.name || b.game.appId || ''), 'id', { sensitivity: 'base' });
+  if (mode === 'translation-newest') {
+    return [...items].sort((a, b) => {
+      const diff = translationAddedAt(b.game) - translationAddedAt(a.game);
+      return diff || byName(a, b);
+    });
+  }
+  return [...items].sort(byName);
+}
+
 function render() {
   const keyword = nodes.search?.value.trim().toLowerCase() || '';
   const filter = nodes.filter?.value || 'all';
+  const sortMode = nodes.sort?.value || 'name-asc';
   const statuses = games.map((game) => ({ game, status: getStatus(game) }));
 
   if (nodes.total) nodes.total.textContent = games.length;
@@ -68,6 +94,8 @@ function render() {
       || (filter === 'ready' && status.ready);
     return matchesSearch && matchesFilter;
   });
+
+  filtered = sortGameStatuses(filtered, sortMode);
 
   if (singleMode) {
     document.body.classList.add('single-embed');
@@ -112,7 +140,7 @@ function translationStatusBlock(game, status) {
     return `<div class="status-box neutral"><span>Status terjemahan</span><strong>Menunggu build publik</strong><small>Status belum dapat dibandingkan.</small></div>`;
   }
   if (!game.translationBuildId) {
-    return `<div class="status-box danger"><span>Status terjemahan</span><strong>Belum ditandai</strong><small>Terjemahan untuk patch terbaru belum dikonfirmasi selesai.</small></div>`;
+    return `<div class="status-box danger"><span>Status terjemahan</span><strong>Belum sesuai</strong><small>Terjemahan belum ditandai sesuai dengan patch publik terbaru.</small></div>`;
   }
   if (status.translationNeedsUpdate) {
     return `<div class="status-box danger"><span>Status terjemahan</span><strong>Perlu update</strong><small>Build terjemahan masih mengikuti patch sebelumnya.</small></div>`;
@@ -136,7 +164,7 @@ function card(game, status) {
     <div class="game-body">
       <div class="game-head"><div><h2 class="game-title">${escapeHtml(game.name || `Steam App ${game.appId}`)}</h2><div class="game-id">App ID ${escapeHtml(game.appId || '')} · patch ${formatDate(game.latestPatchAt)}</div></div></div>
       <div class="status-grid">${gameStatusBlock(status)}${translationStatusBlock(game, status)}</div>
-      <div class="build-row"><div class="build"><span>Build lokal</span><strong>${escapeHtml(game.localBuildId || 'Belum dipindai')}</strong></div><div class="build"><span>Build publik</span><strong>${escapeHtml(game.remoteBuildId || 'Belum tersedia')}</strong></div><div class="build"><span>Build terjemahan</span><strong>${escapeHtml(game.translationBuildId || 'Belum ditandai')}</strong></div></div>
+      <div class="build-row"><div class="build"><span>Build lokal</span><strong>${escapeHtml(game.localBuildId || 'Belum dipindai')}</strong></div><div class="build"><span>Build publik</span><strong>${escapeHtml(game.remoteBuildId || 'Belum tersedia')}</strong></div><div class="build"><span>Build terjemahan</span><strong>${escapeHtml(game.translationBuildId || 'Belum sesuai')}</strong></div></div>
       ${noteHtml}
       <div class="card-actions"><a class="button small" target="_blank" rel="noopener" href="https://steamdb.info/app/${encodeURIComponent(game.appId)}/patchnotes/">SteamDB Patch Notes</a>${game.latestNewsUrl ? `<a class="button small ghost" target="_blank" rel="noopener" href="${escapeHtml(game.latestNewsUrl)}">Berita patch</a>` : ''}</div>
     </div>
@@ -148,6 +176,7 @@ nodes.filter?.addEventListener('change', () => {
   setMetricActive(nodes.filter.value);
   render();
 });
+nodes.sort?.addEventListener('change', render);
 
 document.querySelectorAll('[data-metric-filter]').forEach((button) => {
   button.addEventListener('click', () => {
@@ -166,8 +195,7 @@ async function boot() {
     const { collection, onSnapshot } = firestoreModule;
     onSnapshot(collection(db, 'games'), (snapshot) => {
       games = snapshot.docs
-        .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
-        .sort((a, b) => String(a.name || a.appId || '').localeCompare(String(b.name || b.appId || ''), 'id'));
+        .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
       render();
     }, (error) => showFirebaseError(error));
   } catch (error) {

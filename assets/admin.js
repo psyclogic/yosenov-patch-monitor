@@ -1,5 +1,5 @@
 import { createFirebaseClient } from './firebase-client.js';
-import { escapeHtml, extractAppId, fetchSteamInfo, getStatus, toast, friendlyFirebaseError } from './common.js';
+import { escapeHtml, extractAppId, fetchSteamInfo, getStatus, toast, friendlyFirebaseError } from './common.js?v=20260809-v13';
 
 let games = [];
 let firebase = null;
@@ -113,8 +113,7 @@ function subscribeGames() {
   const { collection, onSnapshot } = firebase.firestoreModule;
   unsubscribeGames = onSnapshot(collection(firebase.db, 'games'), (snapshot) => {
     games = snapshot.docs
-      .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
-      .sort((a, b) => String(a.name || a.appId || '').localeCompare(String(b.name || b.appId || ''), 'id'));
+      .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
     pruneSelection();
     renderAdmin();
   }, error => toast(friendlyFirebaseError(error), 'error'));
@@ -129,9 +128,34 @@ function setAdminFilter(value) {
   });
 }
 
+function toMillis(value) {
+  if (!value) return 0;
+  if (typeof value?.toDate === 'function') return value.toDate().getTime();
+  if (typeof value?.seconds === 'number') return value.seconds * 1000;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function translationAddedAt(game) {
+  if (!String(game.translationBuildId || '').trim()) return 0;
+  return toMillis(game.translationUpdatedAt || game.updatedAt || game.createdAt);
+}
+
+function sortAdminStatuses(items, mode = 'name-asc') {
+  const byName = (a, b) => String(a.game.name || a.game.appId || '').localeCompare(String(b.game.name || b.game.appId || ''), 'id', { sensitivity: 'base' });
+  if (mode === 'translation-newest') {
+    return [...items].sort((a, b) => {
+      const diff = translationAddedAt(b.game) - translationAddedAt(a.game);
+      return diff || byName(a, b);
+    });
+  }
+  return [...items].sort(byName);
+}
+
 function getFilteredStatuses() {
   const keyword = el('admin-search').value.trim().toLowerCase();
   const filter = el('admin-filter').value || 'all';
+  const sortMode = el('admin-sort')?.value || 'name-asc';
   const statuses = games.map(game => ({ game, status: getStatus(game) }));
   const filtered = statuses.filter(({game, status}) => {
     const searchOk = `${game.name || ''} ${game.appId || ''}`.toLowerCase().includes(keyword);
@@ -141,7 +165,7 @@ function getFilteredStatuses() {
       || (filter === 'ready' && status.ready);
     return searchOk && filterOk;
   });
-  return { statuses, filtered, filter };
+  return { statuses, filtered: sortAdminStatuses(filtered, sortMode), filter };
 }
 
 function renderAdmin() {
@@ -177,7 +201,7 @@ function adminCard(game, status) {
   const translationState = !game.remoteBuildId
     ? { cls: 'neutral', title: 'Menunggu build publik', detail: 'Sync data game terlebih dahulu.' }
     : !game.translationBuildId
-      ? { cls: 'danger', title: 'Terjemahan belum ditandai', detail: 'Belum ada build terjemahan yang dikonfirmasi.' }
+      ? { cls: 'danger', title: 'Terjemahan belum sesuai', detail: 'Terjemahan belum ditandai sesuai dengan build publik terbaru.' }
       : status.translationNeedsUpdate
         ? { cls: 'danger', title: 'Terjemahan perlu update', detail: `Terjemahan ${game.translationBuildId} → patch ${game.remoteBuildId}` }
         : { cls: 'success', title: 'Terjemahan sudah sesuai', detail: `Sesuai build ${game.remoteBuildId}` };
@@ -190,8 +214,8 @@ function adminCard(game, status) {
         ? { cls: 'neutral', title: 'Build publik belum tersedia' }
         : { cls: 'success', title: 'Game terbaru' };
 
-  const markDisabled = !game.remoteBuildId || (!status.translationNeedsUpdate && game.translationBuildId === game.remoteBuildId);
-  const markText = markDisabled && game.translationBuildId === game.remoteBuildId ? '✓ Terjemahan sesuai' : '✓ Tandai terjemahan selesai';
+  const translationIsCurrent = Boolean(game.remoteBuildId && String(game.translationBuildId || '') === String(game.remoteBuildId));
+  const translationIsPending = Boolean(game.remoteBuildId && !translationIsCurrent);
   const checked = selectedIds.has(game.id);
 
   return `<article class="admin-game-card ${translationState.cls === 'danger' ? 'needs-translation' : ''}${selectionMode ? ' selection-mode' : ''}">
@@ -199,12 +223,13 @@ function adminCard(game, status) {
     <img class="admin-cover" src="${escapeHtml(game.coverUrl || '/assets/logo.svg')}" alt="">
     <div class="admin-game-main">
       <div class="admin-game-title-row"><div><h3>${escapeHtml(game.name || game.appId)}</h3><div class="game-id">Steam App ID ${escapeHtml(game.appId)}</div></div><div class="admin-status-pills"><span class="badge ${gameState.cls}">${gameState.title}</span><span class="badge ${translationState.cls}">${translationState.title}</span></div></div>
-      <div class="admin-build-grid"><div><span>Lokal</span><strong>${escapeHtml(game.localBuildId || 'Belum dipindai')}</strong></div><div><span>Publik</span><strong>${escapeHtml(game.remoteBuildId || 'Belum tersedia')}</strong></div><div><span>Terjemahan</span><strong>${escapeHtml(game.translationBuildId || 'Belum ditandai')}</strong></div></div>
+      <div class="admin-build-grid"><div><span>Lokal</span><strong>${escapeHtml(game.localBuildId || 'Belum dipindai')}</strong></div><div><span>Publik</span><strong>${escapeHtml(game.remoteBuildId || 'Belum tersedia')}</strong></div><div><span>Terjemahan</span><strong>${escapeHtml(game.translationBuildId || 'Belum sesuai')}</strong></div></div>
       <div class="translation-callout ${translationState.cls}"><strong>${translationState.title}</strong><span>${escapeHtml(translationState.detail)}</span></div>
       ${notes ? `<div class="admin-note"><span>Catatan</span><p>${escapeHtml(notes)}</p></div>` : ''}
       <div class="admin-item-actions">
         <button class="button small" data-action="sync" data-id="${game.id}">↻ Sync</button>
-        <button class="button small primary" data-action="mark" data-id="${game.id}" ${markDisabled ? 'disabled' : ''}>${markText}</button>
+        <button class="button small primary" data-action="mark" data-id="${game.id}" ${translationIsCurrent || !game.remoteBuildId ? 'disabled' : ''}>✓ Terjemahan sudah sesuai</button>
+        <button class="button small translation-pending-button" data-action="unmark" data-id="${game.id}" ${translationIsPending || !game.remoteBuildId ? 'disabled' : ''}>✕ Terjemahan belum sesuai</button>
         <button class="button small" data-action="edit" data-id="${game.id}">Edit / Catatan</button>
         <button class="button small" data-action="embed" data-id="${game.id}">Embed Blogspot</button>
         <button class="button small danger" data-action="delete" data-id="${game.id}">Hapus</button>
@@ -301,6 +326,7 @@ async function deleteSelectedGames() {
 
 el('admin-search').addEventListener('input', renderAdmin);
 el('admin-filter').addEventListener('change', renderAdmin);
+el('admin-sort')?.addEventListener('change', renderAdmin);
 document.querySelectorAll('[data-admin-filter]').forEach((button) => {
   button.addEventListener('click', () => {
     setAdminFilter(button.dataset.adminFilter || 'all');
@@ -339,14 +365,18 @@ function setManualLookupUi({ loading = false, message = '', type = '', info = nu
   }
 }
 
-function applyLocalBuildSuggestion(appId) {
+function applyLocalBuildSuggestion(appId, remoteBuildId = '') {
+  const remote = String(remoteBuildId || manualLookupCache?.remoteBuildId || '');
   const local = findLocalBuildForApp(appId);
-  if (local.build) el('local-build').value = local.build;
-  else if (!el('local-build').dataset.manualEdited) el('local-build').value = '';
+  const selectedBuild = remote || local.build || '';
+  if (el('local-build')) el('local-build').value = selectedBuild;
+  if (el('public-build')) el('public-build').value = remote || '';
   const hint = el('local-build-source');
   if (hint) {
-    hint.textContent = local.source;
-    hint.className = `field-hint ${local.build ? 'success' : ''}`.trim();
+    hint.textContent = remote
+      ? 'Otomatis mengikuti Build publik untuk game yang ditambahkan manual. Sync Laptop dapat memperbarui build lokal sebenarnya setelah game masuk library.'
+      : local.source;
+    hint.className = `field-hint ${selectedBuild ? 'success' : ''}`.trim();
   }
 }
 
@@ -358,7 +388,8 @@ async function lookupManualGame() {
   if (!raw.trim()) {
     manualLookupCache = null;
     el('custom-name').value = '';
-    if (!el('local-build').dataset.manualEdited) el('local-build').value = '';
+    if (el('public-build')) el('public-build').value = '';
+    if (el('local-build')) el('local-build').value = '';
     setManualLookupUi();
     return;
   }
@@ -375,7 +406,7 @@ async function lookupManualGame() {
     if (token !== manualLookupToken) return;
     manualLookupCache = { ...info, appId: String(appId) };
     el('custom-name').value = info.name || `Steam App ${appId}`;
-    applyLocalBuildSuggestion(appId);
+    applyLocalBuildSuggestion(appId, info.remoteBuildId);
     setManualLookupUi({
       message: `${info.name || `Steam App ${appId}`} berhasil dikenali. Anda bisa langsung menyimpan ke library.`,
       type: 'success',
@@ -396,11 +427,6 @@ el('app-input').addEventListener('change', () => {
   clearTimeout(manualLookupTimer);
   lookupManualGame();
 });
-el('local-build').addEventListener('input', () => {
-  el('local-build').dataset.manualEdited = el('local-build').value.trim() ? '1' : '';
-  if (!el('local-build').value.trim()) applyLocalBuildSuggestion(extractAppId(el('app-input').value));
-});
-
 el('add-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const appId = extractAppId(el('app-input').value);
@@ -417,14 +443,14 @@ el('add-form').addEventListener('submit', async (event) => {
       ...info,
       appId,
       name: el('custom-name').value.trim() || info.name || `Steam App ${appId}`,
-      localBuildId: el('local-build').value.trim() || local.build || '',
+      localBuildId: String(info.remoteBuildId || el('local-build').value.trim() || local.build || ''),
       source: 'manual'
     };
     const newNotes = el('add-notes').value.trim();
     if (newNotes) newGame.notes = newNotes;
     await saveGame(newGame);
     event.target.reset();
-    delete el('local-build').dataset.manualEdited;
+    if (el('public-build')) el('public-build').value = '';
     manualLookupCache = null;
     setManualLookupUi();
     if (el('local-build-source')) {
@@ -455,6 +481,7 @@ async function saveGame(game) {
     localBuildId: String(game.localBuildId || previous.localBuildId || ''),
     remoteBuildId: String(game.remoteBuildId || previous.remoteBuildId || ''),
     translationBuildId: String(previous.translationBuildId || ''),
+    translationUpdatedAt: previous.translationUpdatedAt || '',
     latestPatchAt: game.latestPatchAt || previous.latestPatchAt || '',
     latestNewsUrl: game.latestNewsUrl || previous.latestNewsUrl || '',
     source: game.source || previous.source || 'manual',
@@ -488,11 +515,23 @@ el('admin-list').addEventListener('click', async (event) => {
     if (button.dataset.action === 'sync') await syncOne(game);
     if (button.dataset.action === 'mark') {
       if (!game.remoteBuildId) throw new Error('Build publik belum tersedia. Sync terlebih dahulu.');
+      const now = new Date().toISOString();
       await updateDoc(doc(firebase.db, 'games', game.id), {
         translationBuildId: String(game.remoteBuildId),
-        updatedAt: new Date().toISOString()
+        translationUpdatedAt: now,
+        updatedAt: now
       });
       toast('Terjemahan ditandai sesuai patch terbaru.');
+    }
+    if (button.dataset.action === 'unmark') {
+      if (!game.remoteBuildId) throw new Error('Build publik belum tersedia. Sync terlebih dahulu.');
+      const now = new Date().toISOString();
+      await updateDoc(doc(firebase.db, 'games', game.id), {
+        translationBuildId: '',
+        translationUpdatedAt: '',
+        updatedAt: now
+      });
+      toast('Terjemahan ditandai belum sesuai dengan patch terbaru.');
     }
     if (button.dataset.action === 'delete' && confirm(`Hapus ${game.name} dari library?`)) {
       await deleteDoc(doc(firebase.db, 'games', game.id));
@@ -852,7 +891,8 @@ function parseManifest(text) {
 function openEdit(game) {
   el('edit-id').value = game.id;
   el('edit-name').value = game.name || '';
-  el('edit-local').value = game.localBuildId || '';
+  el('edit-public').value = game.remoteBuildId || '';
+  el('edit-local').value = game.localBuildId || game.remoteBuildId || '';
   el('edit-translation').value = game.translationBuildId || '';
   el('edit-notes').value = game.notes || '';
   el('edit-modal').classList.remove('hidden');
@@ -890,19 +930,33 @@ function escapeAttribute(value = '') {
   return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+el('edit-use-public')?.addEventListener('click', () => {
+  el('edit-local').value = el('edit-public').value || '';
+  toast('Build lokal disamakan dengan Build publik.');
+});
+
 el('close-modal').addEventListener('click', () => el('edit-modal').classList.add('hidden'));
 el('edit-modal').addEventListener('click', e => { if (e.target === el('edit-modal')) el('edit-modal').classList.add('hidden'); });
 el('edit-form').addEventListener('submit', async event => {
   event.preventDefault();
   if (!firebase) return;
   const { doc, updateDoc } = firebase.firestoreModule;
-  await updateDoc(doc(firebase.db, 'games', el('edit-id').value), {
+  const gameId = el('edit-id').value;
+  const previousGame = games.find((game) => game.id === gameId);
+  const previousTranslation = String(previousGame?.translationBuildId || '').trim();
+  const nextTranslation = el('edit-translation').value.trim();
+  const now = new Date().toISOString();
+  const updatePayload = {
     name: el('edit-name').value.trim(),
     localBuildId: el('edit-local').value.trim(),
-    translationBuildId: el('edit-translation').value.trim(),
+    translationBuildId: nextTranslation,
     notes: el('edit-notes').value.trim(),
-    updatedAt: new Date().toISOString()
-  });
+    updatedAt: now
+  };
+  if (nextTranslation !== previousTranslation) {
+    updatePayload.translationUpdatedAt = nextTranslation ? now : '';
+  }
+  await updateDoc(doc(firebase.db, 'games', gameId), updatePayload);
   el('edit-modal').classList.add('hidden');
   toast('Perubahan disimpan.');
 });
