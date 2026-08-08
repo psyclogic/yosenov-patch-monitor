@@ -63,11 +63,21 @@ function translationAddedAt(game) {
   return toMillis(game.translationUpdatedAt || game.updatedAt || game.createdAt);
 }
 
+function gameAddedAt(game) {
+  return toMillis(game.createdAt);
+}
+
 function sortGameStatuses(items, mode = 'name-asc') {
   const byName = (a, b) => String(a.game.name || a.game.appId || '').localeCompare(String(b.game.name || b.game.appId || ''), 'id', { sensitivity: 'base' });
   if (mode === 'translation-newest') {
     return [...items].sort((a, b) => {
       const diff = translationAddedAt(b.game) - translationAddedAt(a.game);
+      return diff || byName(a, b);
+    });
+  }
+  if (mode === 'game-newest') {
+    return [...items].sort((a, b) => {
+      const diff = gameAddedAt(b.game) - gameAddedAt(a.game);
       return diff || byName(a, b);
     });
   }
