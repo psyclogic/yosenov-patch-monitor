@@ -6,79 +6,80 @@ const requestedGame = (params.get('game') || params.get('appid') || '').trim();
 const borderMode = params.get('border') !== '0';
 const root = document.querySelector('#game-embed-root');
 
-const frameId = (params.get('frame') || '').trim();
-
-function notifyParentHeight() {
-  const element = document.documentElement;
-  const body = document.body;
-  const height = Math.ceil(Math.max(
-    body?.scrollHeight || 0,
-    body?.offsetHeight || 0,
-    element?.scrollHeight || 0,
-    element?.offsetHeight || 0
-  ));
-  if (window.parent && window.parent !== window && frameId) {
-    window.parent.postMessage({ type: 'yosenov-embed-resize', frameId, height }, '*');
-  }
-}
-
 document.documentElement.classList.toggle('blog-embed-borderless', !borderMode);
 document.body.classList.toggle('blog-embed-borderless', !borderMode);
 
-function statusText(game, status) {
-  const gameStatus = status.remoteUnknown
-    ? ['Build publik belum tersedia', 'neutral']
-    : status.gameNeedsUpdate
-      ? ['Game perlu update', 'warning']
-      : status.localUnknown
-        ? ['Build lokal belum dipindai', 'neutral']
-        : ['Game terbaru', 'success'];
+function gameStatusData(status) {
+  if (status.remoteUnknown) {
+    return { cls: 'neutral', title: 'Build publik belum tersedia', detail: 'Data patch terbaru belum dapat dibaca.' };
+  }
+  if (status.gameNeedsUpdate) {
+    return { cls: 'warning', title: 'Game perlu update', detail: 'Build lokal tertinggal dari build publik.' };
+  }
+  if (status.localUnknown) {
+    return { cls: 'neutral', title: 'Build lokal belum dipindai', detail: 'Sync folder Steam untuk membaca build lokal.' };
+  }
+  return { cls: 'success', title: 'Game terbaru', detail: 'Build lokal sudah sama dengan build publik.' };
+}
 
-  const translationStatus = !game.remoteBuildId
-    ? ['Status terjemahan belum dapat dibandingkan', 'neutral']
-    : !game.translationBuildId
-      ? ['Terjemahan belum ditandai', 'danger']
-      : status.translationNeedsUpdate
-        ? ['Terjemahan perlu update', 'danger']
-        : ['Terjemahan sudah sesuai', 'success'];
+function translationStatusData(game, status) {
+  if (!game.remoteBuildId) {
+    return { cls: 'neutral', title: 'Belum dapat dibandingkan', detail: 'Menunggu informasi build publik.' };
+  }
+  if (!game.translationBuildId) {
+    return { cls: 'danger', title: 'Belum ditandai', detail: 'Terjemahan patch terbaru belum dikonfirmasi.' };
+  }
+  if (status.translationNeedsUpdate) {
+    return { cls: 'danger', title: 'Perlu update', detail: 'Terjemahan masih mengikuti build sebelumnya.' };
+  }
+  return { cls: 'success', title: 'Sudah sesuai', detail: 'Terjemahan sudah cocok dengan patch terbaru.' };
+}
 
-  return { gameStatus, translationStatus };
+function statusBox(label, data) {
+  return `<div class="blog-status-box ${data.cls}">
+    <span>${label}</span>
+    <strong>${escapeHtml(data.title)}</strong>
+    <small>${escapeHtml(data.detail)}</small>
+  </div>`;
 }
 
 function renderGame(game) {
   const status = getStatus(game);
-  const { gameStatus, translationStatus } = statusText(game, status);
+  const gameState = gameStatusData(status);
+  const translationState = translationStatusData(game, status);
   const notes = String(game.notes || '').trim();
+  const appId = String(game.appId || '');
+
   root.innerHTML = `
-    <article class="blog-game-card">
+    <article class="blog-game-card blog-game-card-full">
       <div class="blog-game-heading">
-        <div>
-          <h2>${escapeHtml(game.name || `Steam App ${game.appId}`)}</h2>
-          <p>App ID ${escapeHtml(game.appId || '')} · patch ${formatDate(game.latestPatchAt)}</p>
-        </div>
+        <h2 title="${escapeHtml(game.name || `Steam App ${appId}`)}">${escapeHtml(game.name || `Steam App ${appId}`)}</h2>
+        <p>App ID ${escapeHtml(appId)} · patch ${formatDate(game.latestPatchAt)}</p>
       </div>
-      <div class="blog-status-row">
-        <span class="blog-status ${gameStatus[1]}">${gameStatus[0]}</span>
-        <span class="blog-status ${translationStatus[1]}">${translationStatus[0]}</span>
+
+      <div class="blog-status-detail-grid">
+        ${statusBox('Status game', gameState)}
+        ${statusBox('Status terjemahan', translationState)}
       </div>
+
       <div class="blog-build-grid">
         <div><span>Build lokal</span><strong>${escapeHtml(game.localBuildId || 'Belum dipindai')}</strong></div>
         <div><span>Build publik</span><strong>${escapeHtml(game.remoteBuildId || 'Belum tersedia')}</strong></div>
         <div><span>Build terjemahan</span><strong>${escapeHtml(game.translationBuildId || 'Belum ditandai')}</strong></div>
       </div>
-      ${notes ? `<div class="blog-note"><strong>Catatan</strong><p>${escapeHtml(notes)}</p></div>` : ''}
-    </article>`;
-  requestAnimationFrame(notifyParentHeight);
-  setTimeout(notifyParentHeight, 80);
-  setTimeout(notifyParentHeight, 240);
-}
 
+      ${notes ? `<div class="blog-note blog-note-compact"><strong>Catatan</strong><p>${escapeHtml(notes)}</p></div>` : ''}
+
+      <div class="blog-card-actions">
+        <a href="https://steamdb.info/app/${encodeURIComponent(appId)}/patchnotes/" target="_blank" rel="noopener">SteamDB Patch Notes</a>
+        ${game.latestNewsUrl ? `<a href="${escapeHtml(game.latestNewsUrl)}" target="_blank" rel="noopener">Berita patch</a>` : ''}
+      </div>
+    </article>`;
+}
 
 function renderError(message) {
   root.innerHTML = `<div class="blog-embed-message">${escapeHtml(message)}</div>`;
-  requestAnimationFrame(notifyParentHeight);
 }
-
 
 async function boot() {
   if (!requestedGame) return renderError('Game belum dipilih.');
@@ -101,7 +102,3 @@ async function boot() {
 }
 
 boot();
-
-window.addEventListener('load', notifyParentHeight);
-window.addEventListener('resize', notifyParentHeight);
-if ('ResizeObserver' in window) { new ResizeObserver(() => notifyParentHeight()).observe(document.body); }

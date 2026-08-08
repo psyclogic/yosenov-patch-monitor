@@ -754,14 +754,18 @@ function openEdit(game) {
 }
 
 function buildEmbedCode(game, withBorder = true) {
-  const frameId = `yosenov-embed-${game.appId}-${withBorder ? 'border' : 'clean'}`;
-  const url = `${window.location.origin}/game-embed.html?game=${encodeURIComponent(game.appId)}&border=${withBorder ? '1' : '0'}&frame=${encodeURIComponent(frameId)}`;
+  const url = `${window.location.origin}/game-embed.html?game=${encodeURIComponent(game.appId)}&border=${withBorder ? '1' : '0'}`;
   const title = escapeAttribute(game.name || `Steam App ${game.appId}`);
-  const frameStyle = `display:block;width:100%;height:260px;min-height:220px;border:0;overflow:hidden;background:#ffffff;${withBorder ? 'border-radius:14px;' : ''}`;
-  const resizeScript = `<script>(function(){var id=${JSON.stringify(frameId)};if(window.__yosenovEmbedResizeBound)return;window.__yosenovEmbedResizeBound=true;window.addEventListener('message',function(e){var d=e.data||{};if(d.type!=='yosenov-embed-resize'||!d.frameId)return;var iframe=document.getElementById(d.frameId);if(!iframe)return;var h=Math.max(160,Math.min(520,parseInt(d.height,10)||0));if(h)iframe.style.height=h+'px';});})();<\/script>`;
+  const hasNotes = Boolean(String(game.notes || '').trim());
+  const fallbackHeight = hasNotes ? 286 : 258;
+  const responsiveHeight = hasNotes
+    ? 'clamp(270px,calc(310px - 5vw),292px)'
+    : 'clamp(238px,calc(286px - 5vw),264px)';
+  const iframeStyle = `display:block;width:100%;height:${responsiveHeight};border:0;margin:0;padding:0;overflow:hidden;background:#ffffff;vertical-align:top;${withBorder ? 'border-radius:14px;' : ''}`;
+  const iframe = `<iframe src="${url}" title="Status update ${title}" width="100%" height="${fallbackHeight}" scrolling="no" style="${iframeStyle}" loading="lazy"></iframe>`;
   return {
     url,
-    code: `<iframe id="${frameId}" src="${url}" title="Status update ${title}" width="100%" height="260" scrolling="no" style="${frameStyle}" loading="lazy"></iframe>${resizeScript}`
+    code: `<div style="display:block;width:100%;margin:0;padding:0;line-height:0;overflow:hidden;">${iframe}</div>`
   };
 }
 
