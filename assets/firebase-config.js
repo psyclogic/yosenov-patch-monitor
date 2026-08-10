@@ -6,18 +6,16 @@
 // Jangan pernah menaruh service account / private_key di file frontend ini.
 
 export const fallbackFirebaseConfig = {
-  apiKey: 'AIzaSyDnZlELIrRoiuQzdhLV_GIbXkSuE2NuN1k',
-  authDomain: 'ysnupdate-182f6.firebaseapp.com',
-  projectId: 'ysnupdate-182f6',
-  storageBucket: 'ysnupdate-182f6.firebasestorage.app',
-  messagingSenderId: '803224220954',
-  appId: '1:803224220954:web:d243c7037a07988d8528a3',
-  measurementId: 'G-13S1FMD10F' // Tambahan optional untuk analytics
+  apiKey: '',
+  authDomain: '',
+  projectId: '',
+  storageBucket: '',
+  messagingSenderId: '',
+  appId: ''
 };
 
 export function isFirebaseConfigValid(config) {
   if (!config || typeof config !== 'object') return false;
-  // Menambahkan pengecekan dasar
   const required = ['apiKey', 'authDomain', 'projectId', 'appId'];
   return required.every((key) => {
     const value = String(config[key] || '').trim();
